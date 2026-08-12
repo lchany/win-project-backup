@@ -1,0 +1,218 @@
+diff --git a/projects/mmdet3d_plugin/optimizers/soap.py b/projects/mmdet3d_plugin/optimizers/soap.py
+index e71b5c1..0000000 100644
+--- a/projects/mmdet3d_plugin/optimizers/soap.py
++++ b/projects/mmdet3d_plugin/optimizers/soap.py
+@@ -53,6 +53,7 @@ class SOAP(Optimizer):
+         weight_decay: float = 0.01,
+         precondition_frequency: int=10,
+         max_precond_dim: int=10000, # 
++        one_sided_dim_threshold: int | None = None,
+         merge_dims: bool = False, # Merge dimensions till the product of the dimensions is less than or equal to max_precond_dim.
+         precondition_1d: bool = False,
+         normalize_grads: bool = False,
+@@ -67,6 +68,7 @@ class SOAP(Optimizer):
+             "weight_decay": weight_decay,
+             "precondition_frequency": precondition_frequency,
+             "max_precond_dim": max_precond_dim,
++            "one_sided_dim_threshold": one_sided_dim_threshold,
+             "merge_dims": merge_dims,
+             "precondition_1d": precondition_1d,
+             "normalize_grads": normalize_grads,
+@@ -141,6 +143,7 @@ class SOAP(Optimizer):
+                         precondition_1d=group['precondition_1d'],
+                         shampoo_beta=(group['shampoo_beta'] if group['shampoo_beta'] >= 0 else group["betas"][1]),
+                         max_precond_dim=group['max_precond_dim'],
++                        one_sided_dim_threshold=group['one_sided_dim_threshold'],
+                         merge_dims=group["merge_dims"],
+                     )
+                     self.update_preconditioner(grad, state,
+@@ -208,7 +211,8 @@ class SOAP(Optimizer):
+         return loss
+ 
+     def init_preconditioner(self, grad, state, precondition_frequency=10, 
+-                            shampoo_beta=0.95, max_precond_dim=10000, precondition_1d=False,
++                            shampoo_beta=0.95, max_precond_dim=10000,
++                            one_sided_dim_threshold=None, precondition_1d=False,
+                             merge_dims=False):
+         """
+         Initializes the preconditioner matrices (L and R in the paper).
+@@ -222,9 +226,17 @@ class SOAP(Optimizer):
+         else:
+             if merge_dims:
+                 grad = self.merge_dims(grad, max_precond_dim)
++            one_sided_axis = None
++            if (
++                one_sided_dim_threshold is not None
++                and grad.dim() == 2
++                and max(grad.shape) > one_sided_dim_threshold
++            ):
++                one_sided_axis = min(range(2), key=lambda index: (grad.shape[index], index))
+ 
+-            for sh in grad.shape:
+-                if sh > max_precond_dim:
++            for index, sh in enumerate(grad.shape):
++                if sh > max_precond_dim or (
++                    one_sided_axis is not None and index != one_sided_axis
++                ):
+                     state['GG'].append([])
+                 else:
+                     state['GG'].append(torch.zeros(sh, sh, device=grad.device))
+@@ -273,7 +285,7 @@ class SOAP(Optimizer):
+             if merge_dims:
+                 new_grad = self.merge_dims(grad, max_precond_dim)
+                 for idx, sh in enumerate(new_grad.shape):
+-                    if sh <= max_precond_dim:
++                    if len(state['GG'][idx]) > 0:
+                         outer_product = torch.tensordot(
+                                 new_grad,
+                                 new_grad,
+@@ -282,7 +294,7 @@ class SOAP(Optimizer):
+                         state['GG'][idx].lerp_(outer_product, 1-state['shampoo_beta'])
+             else:
+                 for idx, sh in enumerate(grad.shape):
+-                    if sh <= max_precond_dim:
++                    if len(state['GG'][idx]) > 0:
+                         outer_product = torch.tensordot(
+                                 grad,
+                                 grad,
+@@ -292,7 +304,8 @@ class SOAP(Optimizer):
+                         state['GG'][idx].lerp_(outer_product, 1-state['shampoo_beta'])
+                      
+         if state['Q'] is None:
+-            state['Q'] = self.get_orthogonal_matrix(state['GG'])
++            state['Q'] = self.get_identity_basis(state['GG'])
++            state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)
+         if state['step'] > 0 and state['step'] % state['precondition_frequency'] == 0:
+             state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)           
+ 
+@@ -324,50 +337,19 @@ class SOAP(Optimizer):
+                 grad = grad.reshape(original_shape)
+         return grad
+         
+-
+-    def get_orthogonal_matrix(self, mat):
++    def get_identity_basis(self, mat):
+         """
+-        Computes the eigenbases of the preconditioner using torch.linalg.eigh decomposition.
++        Initializes the eigenbasis on-device, following Meta's QR SOAP implementation.
+         """
+-        matrix = []
+-        for m in mat:
+-            if len(m) == 0:
+-                matrix.append([])
+-                continue
+-            if m.data.dtype != torch.float:
+-                float_data = False
+-                original_type = m.data.dtype
+-                original_device = m.data.device
+-                matrix.append(m.data.float())
+-            else:
+-                float_data = True
+-                matrix.append(m.data)
+-        
+-        final = []
+-        for m in matrix:
++        basis = []
++        for m in mat:
+             if len(m) == 0:
+-                final.append([])
+-                continue
+-            #随机性固定
+-            if str(m.device).startswith("npu"):
+-                # NPU does not support float64 eigh. Make the CPU fallback
+-                # explicit so the decomposition path is stable across runs.
+-                m_cpu = m.detach().to(device="cpu", dtype=torch.float64)
+-                eye_cpu = torch.eye(m.shape[0], device="cpu", dtype=torch.float64)
+-                _, Q = torch.linalg.eigh(m_cpu + 1e-30 * eye_cpu)
+-                Q = Q.to(device=m.device, dtype=m.dtype)
+-            #随机性固定
+-            else:
+-                try:
+-                    _, Q = torch.linalg.eigh(m.to(torch.float64)+1e-30*torch.eye(m.shape[0], device=m.device))
+-                    Q = Q.to(m.dtype)
+-                except:
+-                    _, Q = torch.linalg.eigh(m.cpu()+1e-30*torch.eye(m.shape[0]))
+-                    Q = Q.to(m.device)
+-            Q = torch.flip(Q, [1])
+-
+-            if not float_data:
+-                Q = Q.to(original_device).type(original_type)
+-            final.append(Q)
+-        return final
++                basis.append([])
++            else:
++                basis.append(torch.eye(m.shape[0], device=m.device, dtype=m.dtype))
++        return basis
+         
+ 
+     def get_orthogonal_matrix_QR(self, state, max_precond_dim=10000, merge_dims=False):
+@@ -375,11 +357,7 @@ class SOAP(Optimizer):
+         Computes the eigenbases of the preconditioner using one round of power iteration 
+         followed by torch.linalg.qr decomposition.
+ 
+-        NPU QR can produce different orthogonal bases on different devices for
+-        numerically close matrices. The basis is part of SOAP optimizer state,
+-        so a tiny difference here changes all subsequent projected updates.
+-        Perform this periodic re-basis on CPU in float64 and copy only the
+-        resulting basis and permutation back to the original device.
++        The complete update stays on the parameter device and computes in FP32.
+         """
+         precond_list = state['GG']
+         orth_list = state['Q']
+@@ -390,8 +368,15 @@ class SOAP(Optimizer):
+                 matrix.append([])
+                 orth_matrix.append([])
+                 continue
+-            matrix.append(m.detach())
+-            orth_matrix.append(o.detach())
++            if m.dtype != torch.float32:
++                matrix.append(m.float())
++                orth_matrix.append(o.float())
++            else:
++                matrix.append(m)
++                orth_matrix.append(o)
+         
+         orig_shape = state['exp_avg_sq'].shape
+         if self._data_format == 'channels_last' and len(orig_shape) == 4:
+@@ -406,19 +391,18 @@ class SOAP(Optimizer):
+             if len(m)==0:
+                 final.append([])
+                 continue
+-            original_device = m.device
+-            original_dtype = m.dtype
+-            m_cpu = m.to(device='cpu', dtype=torch.float64)
+-            o_cpu = o.to(device='cpu', dtype=torch.float64)
+-            est_eig = torch.diag(o_cpu.T @ m_cpu @ o_cpu)
+-            sort_idx_cpu = torch.argsort(est_eig, descending=True)
+-            exp_avg_sq = exp_avg_sq.index_select(
+-                ind, sort_idx_cpu.to(device=exp_avg_sq.device))
+-            o_sorted_cpu = o_cpu.index_select(1, sort_idx_cpu)
+-            power_iter_cpu = m_cpu @ o_sorted_cpu
+-            Q_cpu, _ = torch.linalg.qr(power_iter_cpu)
+-            final.append(Q_cpu.to(
+-                device=original_device, dtype=original_dtype))
++            original_dtype = precond_list[ind].dtype
++            est_eig = torch.diag(o.T @ m @ o)
++            sort_idx = torch.argsort(est_eig, descending=True, stable=True)
++            exp_avg_sq = exp_avg_sq.index_select(ind, sort_idx)
++            o = o.index_select(1, sort_idx)
++            power_iter = m @ o
++            Q, _ = torch.linalg.qr(power_iter)
++            if Q.dtype != original_dtype:
++                Q = Q.to(original_dtype)
++            final.append(Q)
+         
+         if merge_dims:
+             if self._data_format == 'channels_last' and len(orig_shape) == 4:
+diff --git a/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py b/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
+index 0409562..0000000 100644
+--- a/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
++++ b/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
+@@ -3222,6 +3222,7 @@ optimizer = dict(
+         }
+     ),
+     precondition_frequency=10,
++    one_sided_dim_threshold=1024,
+     weight_decay=0.01)
+ 
+ # optimizer = dict(
