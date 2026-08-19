@@ -31,23 +31,23 @@ def value_after_colon(line: str) -> str:
 
 
 def parse_machine_info() -> dict[str, object]:
-    lines = MACHINE_INFO.read_text(encoding="utf-8").splitlines()
-    jump_host = re.search(r"(?:\d{1,3}\.){3}\d{1,3}", lines[1]).group(0)
-    jump_port = int(value_after_colon(lines[2]))
-    jump_user = value_after_colon(lines[3])
-    jump_password = value_after_colon(lines[4])
+    text = MACHINE_INFO.read_text(encoding="utf-8")
+    jump_host = re.search(r"跳板机[\s\S]*?((?:\d{1,3}\.){3}\d{1,3})", text).group(1)
+    jump_port = int(re.search(r"跳板机[\s\S]*?端口\s*[:：]\s*(\d+)", text).group(1))
+    jump_user = re.search(r"跳板机[\s\S]*?账号\s*[:：]\s*(\S+)", text).group(1)
+    jump_password = re.search(r"跳板机[\s\S]*?密码\s*[:：]\s*(\S+)", text).group(1)
 
     target_match = re.search(
-        r"((?:\d{1,3}\.){3}\d{1,3})\s+(\S+)\s+密码\s*[:：]\s*(\S+)",
-        lines[8],
+        r"主机器[\s\S]*?((?:\d{1,3}\.){3}\d{1,3})\s+(\S+)\s+密码\s*[:：]\s*(\S+)",
+        text,
     )
     if not target_match:
-        raise ValueError("unable to parse NPU host line")
+        raise ValueError("unable to parse primary NPU host line")
     target_host, target_user, target_password = target_match.groups()
-    target_port = int(value_after_colon(lines[9]))
+    target_port = int(re.search(r"主机器[\s\S]*?端口\s*[:：]\s*(\d+)", text).group(1))
 
-    shared = value_after_colon(lines[13]).rstrip()
-    branch_match = re.search(r"([A-Za-z0-9._/-]+)分支", lines[14])
+    shared = re.search(r"共同的地址\s*[:：]\s*(\S+)", text).group(1).rstrip()
+    branch_match = re.search(r"([A-Za-z0-9._/-]+)分支", text)
     if not branch_match:
         raise ValueError("unable to parse target branch")
     branch = branch_match.group(1)
