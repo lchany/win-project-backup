@@ -1,0 +1,30 @@
+diff --git a/projects/mmdet3d_plugin/models/detectors/spetr3d.py b/projects/mmdet3d_plugin/models/detectors/spetr3d.py
+index 820c1be..9962658 100644
+--- a/projects/mmdet3d_plugin/models/detectors/spetr3d.py
++++ b/projects/mmdet3d_plugin/models/detectors/spetr3d.py
+@@ -488,25 +488,11 @@ class SPetr3D(MVXTwoStageDetector):
+                             data_tag=None,
+                             pred_bbox3d_range_valid=None,
+                             depth_map=None,
+                             **data):
+         losses = dict()
+-#随机性固定
+-        print("FWD_IN",
+-            "img", tensor_hash(data["img"]),
+-            "points", tensor_hash(data["points"]) if "points" in data else None,
+-            "gt_bboxes_3d", tensor_hash(gt_bboxes_3d),
+-            "map_gt_bboxes_3d", tensor_hash(map_gt_bboxes_3d))
+-#随机性固定
+         T = data['img'].size(1)     # torch.Size([2, 1, 7, 3, 544, 960])
+-#随机性固定
+-        print("FWD_IN",
+-            "img", tensor_hash(data["img"]),
+-            "points", tensor_hash(data["points"]) if "points" in data else None,
+-            "gt_bboxes_3d", tensor_hash(gt_bboxes_3d),
+-            "map_gt_bboxes_3d", tensor_hash(map_gt_bboxes_3d))
+-#随机性固定
+         num_nograd_frames = T - self.num_frame_head_grads
+         num_grad_losses = T - self.num_frame_losses # 0
+         if gt_motions_3d is None:
+             gt_motions_3d = [None] * T
+         if gt_bboxes_3d_cam is None:

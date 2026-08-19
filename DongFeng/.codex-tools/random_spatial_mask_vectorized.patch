@@ -1,0 +1,49 @@
+diff --git a/projects/mmdet3d_plugin/models/utils/bev_encoder.py b/projects/mmdet3d_plugin/models/utils/bev_encoder.py
+--- a/projects/mmdet3d_plugin/models/utils/bev_encoder.py
++++ b/projects/mmdet3d_plugin/models/utils/bev_encoder.py
+@@ -412,19 +412,38 @@ class BEVFormerEncoder(TransformerLayerSequence):
+         x: [B, C, H, W]
+         """
+         B, C, H, W = x.shape
+-        mask = torch.ones((B, 1, H, W), device=x.device, dtype=x.dtype)
+         enable = (torch.rand(B, 1, 1, 1, device=x.device) < enable_prob).to(x.dtype)
+ 
+         num_blocks_h = H // block_size
+         num_blocks_w = W // block_size
+-        num_mask = int(num_blocks_h * num_blocks_w * mask_ratio)
++        num_blocks = num_blocks_h * num_blocks_w
++        num_mask = int(num_blocks * mask_ratio)
+ 
++        # Keep one CPU randperm call per batch item, in the original order, so
++        # both CPU/NPU RNG streams and the selected block set stay unchanged.
++        offset_indices = []
+         for b in range(B):
+-            idx = torch.randperm(num_blocks_h * num_blocks_w)[:num_mask]
+-            for i in idx:
+-                h = (i // num_blocks_w) * block_size
+-                w = (i % num_blocks_w) * block_size
+-                mask[b, :, h:h+block_size, w:w+block_size] = 0
++            idx = torch.randperm(num_blocks)[:num_mask]
++            if idx.numel():
++                offset_indices.append(idx + b * num_blocks)
++
++        block_mask = torch.ones(B * num_blocks, device=x.device, dtype=x.dtype)
++        if offset_indices:
++            flat_indices = torch.cat(offset_indices).to(x.device)
++            block_mask.index_fill_(0, flat_indices, 0)
++        block_mask = block_mask.view(B, 1, num_blocks_h, num_blocks_w)
++        mask = block_mask.repeat_interleave(block_size, dim=2)
++        mask = mask.repeat_interleave(block_size, dim=3)
++
++        full_h = num_blocks_h * block_size
++        full_w = num_blocks_w * block_size
++        if full_w < W:
++            right = torch.ones((B, 1, full_h, W - full_w), device=x.device, dtype=x.dtype)
++            mask = torch.cat((mask, right), dim=3)
++        if full_h < H:
++            bottom = torch.ones((B, 1, H - full_h, W), device=x.device, dtype=x.dtype)
++            mask = torch.cat((mask, bottom), dim=2)
++        mask = mask.contiguous()
+ 
+         effective_mask = enable * mask + (1 - enable)
+ 

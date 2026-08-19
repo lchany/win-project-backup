@@ -1,0 +1,13 @@
+diff --git a/projects/mmdet3d_plugin/optimizers/soap.py b/projects/mmdet3d_plugin/optimizers/soap.py
+--- a/projects/mmdet3d_plugin/optimizers/soap.py
++++ b/projects/mmdet3d_plugin/optimizers/soap.py
+@@ -419,7 +419,8 @@ class SOAP(Optimizer):
+             exp_avg_sq = exp_avg_sq.index_select(ind, sort_idx)
+             o = o.index_select(1, sort_idx)
+             power_iter = m @ o
+-            Q, _ = torch.linalg.qr(power_iter)
++            packed, tau = torch.geqrf(power_iter)
++            Q = torch.orgqr(packed, tau)
+             if Q.dtype != original_dtype:
+                 Q = Q.to(original_dtype)
+             final.append(Q)

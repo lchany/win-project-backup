@@ -21,6 +21,8 @@ if hasattr(sys.stderr, "reconfigure"):
 
 ROOT = Path(__file__).resolve().parents[1]
 MACHINE_INFO = ROOT / "机器IP.md"
+REQUIRED_TARGET_LAST_OCTET = "42"
+REQUIRED_TARGET_HOSTNAME = "yfzy-zhsc-910c-1.novalocal"
 
 
 def value_after_colon(line: str) -> str:
@@ -81,6 +83,17 @@ def connect(host: str, port: int, user: str, password: str, sock=None):
         banner_timeout=20,
         auth_timeout=20,
     )
+    if host.split(".")[-1] == REQUIRED_TARGET_LAST_OCTET:
+        _, stdout, stderr = client.exec_command("hostname", timeout=20)
+        actual = stdout.read().decode("utf-8", errors="replace").strip()
+        error = stderr.read().decode("utf-8", errors="replace").strip()
+        status = stdout.channel.recv_exit_status()
+        if status != 0 or actual != REQUIRED_TARGET_HOSTNAME:
+            client.close()
+            detail = f" status={status}" if status != 0 else ""
+            if error:
+                detail += " hostname_query_failed"
+            raise ValueError(f"remote target hostname guard rejected connection{detail}")
     return client
 
 

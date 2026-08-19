@@ -1,0 +1,83 @@
+diff --git a/projects/mmdet3d_plugin/models/losses/geo_loss.py b/projects/mmdet3d_plugin/models/losses/geo_loss.py
+index 042cbcb..0d0b4f8 100644
+--- a/projects/mmdet3d_plugin/models/losses/geo_loss.py
++++ b/projects/mmdet3d_plugin/models/losses/geo_loss.py
+@@ -70,10 +70,32 @@ def _compute_inter_geometrics(
+     # dots = dots.masked_select(mask)
+     # cross = cross.masked_select(mask)
+ 
+     return length.reshape(-1), dots.reshape(-1), cross.reshape(-1)
+ 
++
++def _finite_l1_loss(input, target, size_average=None, reduction='mean'):
++    """L1 reduction over finite targets without materializing index tensors."""
++    if size_average is not None or reduction not in ('mean', 'sum'):
++        finite = torch.isfinite(target)
++        return l1_loss(input[finite], target[finite], size_average,
++                       reduction=reduction)
++
++    finite = torch.isfinite(target)
++    difference = torch.where(
++        finite, torch.abs(input - target), torch.zeros_like(input))
++    total = difference.sum()
++    if reduction == 'sum':
++        return total
++
++    count = finite.sum()
++    finite_mean = total / count.clamp_min(1)
++    # Match l1_loss(empty, empty, reduction='mean'): NaN value with a
++    # zero gradient. The branch stays on-device and does not synchronize.
++    empty_mean = total * 0.0 + input.new_tensor(float('nan'))
++    return torch.where(count > 0, finite_mean, empty_mean)
++
+ @LOSSES.register_module()
+ class GeometricLoss(nn.Module):
+     """
+         Implementation of Geometric Loss
+     Args:
+@@ -191,16 +213,16 @@ class GeometricLoss(nn.Module):
+             ft_targets = normalized_target[valid_mask]
+             # ft_targets_denormalized = target[..., :2][valid_mask]
+             length_preds, dot_preds, cross_preds = self.compute_intra_geometrics(ft_preds)
+             length_targets, dot_targets, cross_targets = self.compute_intra_geometrics(ft_targets)
+             # offset_targets = self.compute_offset_geometrics(ft_targets_denormalized)
+-            isnotnan = torch.isfinite(length_targets)
+-            intra_loss += self.loss_geo(length_preds[isnotnan], length_targets[isnotnan], weight, reduction=reduction)
+-            isnotnan = torch.isfinite(dot_targets)
+-            intra_loss += self.loss_geo(dot_preds[isnotnan], dot_targets[isnotnan], weight, reduction=reduction)
+-            isnotnan = torch.isfinite(cross_targets)
+-            intra_loss += self.loss_geo(cross_preds[isnotnan], cross_targets[isnotnan], weight, reduction=reduction)
++            intra_loss += _finite_l1_loss(
++                length_preds, length_targets, weight, reduction)
++            intra_loss += _finite_l1_loss(
++                dot_preds, dot_targets, weight, reduction)
++            intra_loss += _finite_l1_loss(
++                cross_preds, cross_targets, weight, reduction)
+         # isnotnan = torch.isfinite(offset_targets)
+         # intra_loss += self.loss_geo(ft_preds_offset[isnotnan], offset_targets[isnotnan], weight, reduction=reduction)
+ 
+         # inter, relation
+         num_pts = pred.size(1)
+@@ -218,16 +240,16 @@ class GeometricLoss(nn.Module):
+                 ft_targets = re_targets[idx][valid_mask[idx]]
+                 ft_offset_preds = offset_re_preds[idx][valid_mask[idx]]
+                 ft_offset_targets = offset_re_targets[idx][valid_mask[idx]]
+                 length_preds, dot_preds, cross_preds = self.compute_inter_geometrics(ft_preds, ft_offset_preds)
+                 length_targets, dot_targets, cross_targets = self.compute_inter_geometrics(ft_targets, ft_offset_targets)
+-                isnotnan = torch.isfinite(length_targets)
+-                inter_loss += self.loss_geo(length_preds[isnotnan], length_targets[isnotnan], weight, reduction=reduction)
+-                isnotnan = torch.isfinite(dot_targets)
+-                inter_loss += self.loss_geo(dot_preds[isnotnan], dot_targets[isnotnan], weight, reduction=reduction)
+-                isnotnan = torch.isfinite(cross_targets)
+-                inter_loss += self.loss_geo(cross_preds[isnotnan], cross_targets[isnotnan], weight, reduction=reduction)
++                inter_loss += _finite_l1_loss(
++                    length_preds, length_targets, weight, reduction)
++                inter_loss += _finite_l1_loss(
++                    dot_preds, dot_targets, weight, reduction)
++                inter_loss += _finite_l1_loss(
++                    cross_preds, cross_targets, weight, reduction)
+         if self.inter_loss_weight is not None or self.intra_loss_weight is not None:
+             loss = pred.new_tensor(0.0)
+             if self.inter_loss_weight is not None:
+                 loss += self.inter_loss_weight * inter_loss
+             else:

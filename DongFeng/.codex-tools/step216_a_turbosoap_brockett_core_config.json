@@ -1,0 +1,40 @@
+{
+  "algorithm": {
+    "basis_weight_exponent": 1.0,
+    "basis_weight_normalization": "mean_one",
+    "basis_weight_order": "n_to_1",
+    "direction": "plus",
+    "direction_normalizer": "disabled_for_core_probe",
+    "eigengap_preconditioner": "disabled_for_core_probe",
+    "eta": 0.01,
+    "matrix_normalization": "abs_trace_over_n",
+    "matrix_normalization_floor": 1e-12,
+    "substeps": 1
+  },
+  "authority": {
+    "license": "Apache-2.0",
+    "repository": "https://github.com/ethansmith2000/TurboSOAP",
+    "revision": "1339218c180312b6ed1b04013fd910df9aff6ee7",
+    "source_blob": "d1563b35096440d4374c4a2e784dd652d804954e",
+    "source_url": "https://github.com/ethansmith2000/TurboSOAP/blob/1339218c180312b6ed1b04013fd910df9aff6ee7/soap.py",
+    "status": "verified_primary_source"
+  },
+  "probe_scope": {
+    "candidate_accept_controller": "disabled",
+    "dtype": "float32",
+    "persistent_direction_ema": "disabled",
+    "purpose": "isolated_core_operator_screen_only",
+    "stable_sort": true
+  },
+  "retraction": {
+    "coefficient_g": -10.0,
+    "coefficient_g2": 3.0,
+    "coefficient_z": 15.0,
+    "count": 1,
+    "kind": "scaled_single_cubic_polar",
+    "outer_scale": 0.125,
+    "row_sum_target": 1.25,
+    "scale_epsilon": 1e-7
+  },
+  "schema": "step216_turbosoap_brockett_core_v1"
+}

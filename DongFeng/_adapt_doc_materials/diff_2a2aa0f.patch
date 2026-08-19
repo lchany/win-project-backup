@@ -1,0 +1,28 @@
+diff --git a/mmcv/parallel/data_container.py b/mmcv/parallel/data_container.py
+index 62f2573..d79783a 100644
+--- a/mmcv/parallel/data_container.py
++++ b/mmcv/parallel/data_container.py
+@@ -87,5 +87,23 @@ class DataContainer:
+         return self.data.size(*args, **kwargs)
+ 
+     @assert_tensor_type
+     def dim(self) -> int:
+         return self.data.dim()
++
++    def pin_memory(self):
++        """Pin CPU tensor payload so DataLoader pin_memory=True takes effect."""
++        if self.cpu_only:
++            return self
++
++        def _pin(obj):
++            if isinstance(obj, torch.Tensor):
++                return obj.pin_memory()
++            if isinstance(obj, list):
++                return [_pin(x) for x in obj]
++            if isinstance(obj, tuple):
++                return tuple(_pin(x) for x in obj)
++            return obj
++
++        self._data = _pin(self._data)
++        return self
++
