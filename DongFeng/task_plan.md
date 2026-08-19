@@ -6,7 +6,7 @@
 在不改变最终功能、训练语义且保持 loss/梯度门禁的前提下，为 `ascend_npu_optimize` 做可复现、可量化、按功能独立提交的昇腾 NPU 性能优化。验收：同合同下 8 卡 NPU 与 8 卡 GPU 的 `throughput (samples/s)` 达到 1:1 或更好。用户 2026-08-18 双门禁：耗时相对 CPU FP64 SOAP 基线大幅下降，且逐步 logged `loss` 相对 GPU `|Δ| ≤ 2%`。
 
 ## Next Step
-完成本地发布审计：排除凭据、GBrain 本地绑定、缓存、原始 profiling/训练产物和 GitHub 超限文件；建立发布分支、提交安全范围，待 GitHub 认证可用后推送并创建草稿 PR。
+GitHub 安全发布已完成；回到 STEP-306 当前诊断链路，继续遵守 42 主机、`mapqr-leicheng` 容器和 8 卡 NPU 门禁。
 
 ## Current Phase
 **STEP-303 DONE**：同一 BAD tensor 在 8 卡可见且正确 `set_device` 的逻辑卡高频重放中也未复现 NaN/507015；单算子脚本侧的 device-context 问题已基本澄清，剩余重点转向真实训练链路中的上下文与状态因素。
@@ -44,9 +44,9 @@
 - [x] 安装 GitHub CLI 并检查认证状态
 - [x] 审计敏感信息、缓存、训练/profiling 产物及超限文件
 - [x] 建立发布分支并提交首批安全范围（`0fa5e1b`）
-- [ ] 验证并提交首批提交后新出现的 STEP-306 源码脚本
-- [ ] 推送分支并创建草稿 PR
-- **Status:** in_progress
+- [x] 验证并提交首批提交后新出现的 STEP-306 源码脚本（`5e162d5`）
+- [x] 推送分支并创建草稿 PR
+- **Status:** complete
 
 ## Acceptance Criteria
 - 逐步 logged `loss` 相对 GPU `|Δ| ≤ 2%`。
