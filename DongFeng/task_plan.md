@@ -63,8 +63,8 @@
 - [x] 从本地 Git 对象库恢复此前被替换的历史 IP/WandB 原值
 - [x] 删除 `.gitignore` 并盘点仓库当前全部文件
 - [x] 配置 LFS、强制暂存并核验全部对象
-- [ ] 提交并直接推送 `main`，核验远端 SHA 与 LFS 上传状态
-- **Status:** in_progress
+- [x] 提交并直接推送 `main`，核验远端 SHA 与 LFS 上传状态
+- **Status:** complete
 
 ## Acceptance Criteria
 - 逐步 logged `loss` 相对 GPU `|Δ| ≤ 2%`。
