@@ -6,7 +6,7 @@
 在不改变最终功能、训练语义且保持 loss/梯度门禁的前提下，为 `ascend_npu_optimize` 做可复现、可量化、按功能独立提交的昇腾 NPU 性能优化。验收：同合同下 8 卡 NPU 与 8 卡 GPU 的 `throughput (samples/s)` 达到 1:1 或更好。用户 2026-08-18 双门禁：耗时相对 CPU FP64 SOAP 基线大幅下降，且逐步 logged `loss` 相对 GPU `|Δ| ≤ 2%`。
 
 ## Next Step
-完成 `main` 合并提交的最终 Gitleaks/语法/范围门禁，直接推送 `origin/main` 并核对本地与远端 HEAD。
+按用户最终确认恢复此前脱敏值，删除排除规则，用 Git LFS 跟踪超限文件，将仓库当前全部文件原样提交并推送 `main`。
 
 ## Current Phase
 **STEP-303 DONE**：同一 BAD tensor 在 8 卡可见且正确 `set_device` 的逻辑卡高频重放中也未复现 NaN/507015；单算子脚本侧的 device-context 问题已基本澄清，剩余重点转向真实训练链路中的上下文与状态因素。
@@ -54,7 +54,16 @@
 - [x] 哈希审计当前本地源码相对发布分支的增量
 - [x] 提交 `remote_exec.py`、更新后的 STEP-307 poll 与 STEP-308 三个脚本（`b556349`）
 - [x] 无冲突合并 `codex/publish-local-project`，保留当前本地增量
-- [ ] 最终安全门禁、提交合并记录、直接推送 `main` 并核验 SHA
+- [x] 最终安全门禁、提交合并记录、直接推送 `main` 并核验 SHA
+- **Status:** complete
+
+### Phase 11: 全部原样提交
+- [x] 用户明确确认覆盖此前脱敏与产物排除选择
+- [x] 启用 Git LFS 方案处理超过 GitHub 普通文件限制的文件
+- [x] 从本地 Git 对象库恢复此前被替换的历史 IP/WandB 原值
+- [x] 删除 `.gitignore` 并盘点仓库当前全部文件
+- [x] 配置 LFS、强制暂存并核验全部对象
+- [ ] 提交并直接推送 `main`，核验远端 SHA 与 LFS 上传状态
 - **Status:** in_progress
 
 ## Acceptance Criteria

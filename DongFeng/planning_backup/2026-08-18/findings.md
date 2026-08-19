@@ -29,7 +29,7 @@ STEP-260 在每次 `mx_driving_cloud.linalg.qr` 后检查有限性与 `Q@R≈A`�
 
 ### 给算子同事的复现物
 
-本地 `C:\project\win-project-backup\DongFeng\step260_qr_bad_tensors\`，已传到 `ubuntu@[REDACTED_IP]:/home/ubuntu/`：`rank{0-7}_step10_ind0_192x192_BAD.pt`。
+本地 `C:\project\win-project-backup\DongFeng\step260_qr_bad_tensors\`，已传到 `ubuntu@2.55.0.3:/home/ubuntu/`：`rank{0-7}_step10_ind0_192x192_BAD.pt`。
 
 ## 2026-08-18 双门禁：耗时大幅下降 + 逐步 loss ≤2%
 

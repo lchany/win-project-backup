@@ -32,7 +32,7 @@
 # import torch
 # import torch_npu
 # # import wandb
-# # wandb_key = ""
+# # wandb_key = "b0a9ac6f5e2403c21d3b3175c9d944aeb59ec967"
 # # wandb.login(key=wandb_key)
 # # assert (wandb_key is not None)
 # import sys
@@ -400,7 +400,7 @@ from projects.mmdet3d_plugin.datasets.samplers.seta_seq import FlagBasedSeTa
 import torch
 import torch_npu
 # import wandb
-# wandb_key = ""
+# wandb_key = "b0a9ac6f5e2403c21d3b3175c9d944aeb59ec967"
 # wandb.login(key=wandb_key)
 # assert (wandb_key is not None)
 import sys
