@@ -101,3 +101,4 @@
 - STEP-306 两个 Python 文件通过 AST 解析，Gitleaks 0 命中；本机未安装 Bash，Shell 语法检查跳过。生成独立提交 `5e162d5`。
 - `codex/publish-local-project` 已成功推送并跟踪 `origin/codex/publish-local-project`；GitHub 已创建目标为 `main` 的草稿 PR。
 - 收尾记录提交 `72b07c5` 已推送，本地与远端 SHA 一致；随后的状态核验发现并行本地流程新生成 3 个 STEP-307 源码脚本，继续纳入独立验证和发布。
+- STEP-307 两个 Python 文件通过 AST 解析，Gitleaks 0 命中；提交 `fae5970` 已推送且远端 SHA 一致。最终状态仅剩明确排除的凭据、缓存、GBrain 本地标记与兄弟目录，没有未发布的 `DongFeng` 源码。
