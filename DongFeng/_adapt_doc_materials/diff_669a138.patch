@@ -1,0 +1,209 @@
+diff --git a/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py b/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
+index b0d06d8..d245fc6 100644
+--- a/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
++++ b/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
+@@ -52,7 +52,7 @@ custom_imports = dict(
+ log_config = dict(
+     interval=1,
+     hooks=[
+-        dict(type='TextLoggerHook', memory_interval=10),
++        dict(type='TextLoggerHook', memory_interval=10),
+         dict(type='TensorboardLoggerHook')
+     ])
+ 
+@@ -332,7 +332,7 @@ tasks = [
+ #num_gpus = 8
+ #随机性固定
+ #随机性固定
+-num_gpus = 8
++num_gpus = 8
+ #随机性固定
+ import torch
+ # if ('4090' in torch.cuda.get_device_name()) or ('L4' in torch.cuda.get_device_name()) :
+@@ -343,7 +343,7 @@ import torch
+ # batch_size = 16
+ #随机性固定
+ #随机性固定
+-batch_size = 16
++batch_size = 16
+ #随机性固定
+ num_iters_per_epoch = 28130 // (num_gpus * batch_size)
+ num_epochs = 4
+@@ -374,7 +374,7 @@ model = dict(
+     num_frame_backbone_grads=num_frame_losses,
+     num_frame_losses=num_frame_losses,
+     #随机性固定
+-    use_grid_mask=False,
++    use_grid_mask=True,
+     #随机性固定
+     fix_backbone=fix_backbone,
+     fix_pts_backbone = fix_pts_backbone,
+@@ -1021,9 +1021,9 @@ model = dict(
+             bev_w=bev_w_,
+             modality='fusion',
+             #随机性固定
+-            lidar_dropout_prob=0,
+-            lidar_spatial_rate=0,
+-            lidar_mask_ratio=0,
++            lidar_dropout_prob=0.1,
++            lidar_spatial_rate=0.2,
++            lidar_mask_ratio=0.2,
+             #随机性固定
+             #随机性固定
+             # lidar_dropout_prob=0.1,
+@@ -1620,21 +1620,21 @@ train_pipeline = [
+     ),
+     dict(type="ObjectRangeFilter2D3D", point_cloud_range=bbox_pred_range),
+     dict(type="ObjectNameFilter2D3D", classes={'pvb': class_names, 'gop': gop_class_names}),
+-    dict(
+-        type="ResizeCropFlipRotImageOnlyResize2D3D",
+-        data_config=ida_aug_conf,
+-        apply_ida=True,
+-    ),
+-    # dict(type='PhotoMetricDistortionMultiViewImage'),
+-    dict(
+-        type='PhotoMetricDistortionMultiViewImage',
+-        brightness_delta=12,
+-        contrast_range=(0.1, 1.1),
+-        saturation_range=(0.1, 1.1),
+-        hue_delta=5,
+-        ),
+-    dict(type='PointsRangeFilter', point_cloud_range=point_cloud_range),
+-    dict(type='PointShuffle'),
++    dict(
++        type="ResizeCropFlipRotImageOnlyResize2D3D",
++        data_config=ida_aug_conf,
++        apply_ida=True,
++    ),
++    # dict(type='PhotoMetricDistortionMultiViewImage'),
++    dict(
++        type='PhotoMetricDistortionMultiViewImage',
++        brightness_delta=12,
++        contrast_range=(0.1, 1.1),
++        saturation_range=(0.1, 1.1),
++        hue_delta=5,
++        ),
++    dict(type='PointsRangeFilter', point_cloud_range=point_cloud_range),
++    dict(type='PointShuffle'),
+     dict(type='TransPointsToVoxels', point_cloud_range=point_cloud_range, num_point_features=4, voxel_size=voxel_size, pillar_label=True),
+     dict(type='PreparePPHeavyGT', is_training=True, class_names={'pvb': class_names, 'gop': gop_class_names}, pp_heavy_names=['PP_HEAVY_PVB', 'PP_HEAVY_GOP_DRIVING'], dataset_cfg=pp_heavy_dataset_cfg),
+     dict(type="NormalizeMultiviewImageSpeedUp", img_norm_cfg=img_norm_cfg),
+@@ -2697,7 +2697,7 @@ new_test = [
+         # dropout_sd_prob=0.2,
+         #随机性固定
+         #随机性固定
+-        dropout_sd_prob=0,
++        dropout_sd_prob=0.2,
+         #随机性固定
+         split_json=True,
+         load_obj_traj=False,
+@@ -3144,9 +3144,9 @@ data_train_lanenew_configs = [
+ data = dict(
+     samples_per_gpu=batch_size,
+     #随机性固定
+-    workers_per_gpu=8,
++    workers_per_gpu=8,
+ 
+-    train_loader=dict(pin_memory=True, prefetch_factor=3),
++    train_loader=dict(pin_memory=True, prefetch_factor=3),
+     #随机性固定
+     #随机性固定
+     #train_loader=dict(pin_memory=True, prefetch_factor=3),
+@@ -3204,7 +3204,7 @@ data = dict(
+         data_tag="pvb",
+         loading_sdmap=False,
+         # lidar_type=['top_center_lidar', 'front_lidar']
+-        lidar_type=['front_lidar', 'top_center_lidar'] # first front_lidar
++        #lidar_type=['front_lidar', 'top_center_lidar'] # first front_lidar
+     ),
+ 
+     # shuffler_sampler=dict(type='InfiniteRandomDropGroupEachSampleInBatchSampler'),
+@@ -3222,7 +3222,7 @@ optimizer = dict(
+         }
+     ),
+     precondition_frequency=10,
+-    one_sided_dim_threshold=1024,
++    one_sided_dim_threshold=1024,
+     weight_decay=0.01)
+ 
+ # optimizer = dict(
+@@ -3249,12 +3249,8 @@ optimizer = dict(
+ #随机性固定
+ #随机性固定
+ optimizer_config = dict(
+-    type='GradientFingerprintOptimizerHook',
+-    grad_clip=dict(max_norm=35, norm_type=2),
+-    fingerprint_iters=(),
+-    fingerprint_phases=(),
+-    synchronize_after_backward=False,
+-)
++    type='Fp16OptimizerHookProtectGradNan', loss_scale='dynamic',
++    grad_clip=dict(max_norm=35, norm_type=2))
+ #随机性固定
+ # optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', 
+ #                         loss_scale='dynamic', 
+diff --git a/tools/ddp_train.sh b/tools/ddp_train.sh
+index 17226b7..9fca365 100644
+--- a/tools/ddp_train.sh
++++ b/tools/ddp_train.sh
+@@ -1,7 +1,8 @@
+-\#!/usr/bin/env bash
++#!/usr/bin/env bash
+ 
+ set -x
+-export PYTORCH_NPU_ALLOC_CONF="expandable_segments:True"
++export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
++export SOAP_STALE_Q_K=4
+ export FUNCTION=${1}
+ 
+ DEBUG=${DEBUG:-false}
+@@ -47,7 +48,7 @@ if [ $MODE == multi ]; then
+ 
+     --gpus ${GPUS} --autoscale-lr --no-validate \
+     --resume-from ${WORK_DIRS}/latest.pth \
+-    --launcher="pytorch" 2>&1 | tee ${WORK_DIRS}/train.log
++    --max-iters "${MAX_ITERS:-30}" --launcher="pytorch" 2>&1 | tee ${WORK_DIRS}/train.log
+ elif [ $MODE == local ]; then
+     python ${FUNCTION} ${CONFIG} --work-dir=${WORK_DIRS} \
+     --gpus ${GPUS} --autoscale-lr \
+@@ -57,9 +58,5 @@ else
+     python -m torch.distributed.launch --master_port ${MLP_WORKER_0_PORT} --nproc_per_node ${GPUS} --use_env \
+     ${FUNCTION} ${CONFIG} --work-dir=${WORK_DIRS} \
+     --gpus ${GPUS} --autoscale-lr \
+-    --launcher="pytorch" 2>&1 | tee ${WORK_DIRS}/train.log
++    --max-iters "${MAX_ITERS:-30}" --launcher="pytorch" 2>&1 | tee ${WORK_DIRS}/train.log
+ fi
+-
+-
+-
+-!/usr/bin/env bash
+diff --git a/tools/train_spetr.py b/tools/train_spetr.py
+index 5963980..d0d09a3 100755
+--- a/tools/train_spetr.py
++++ b/tools/train_spetr.py
+@@ -382,6 +382,7 @@ from mmcv.runner import get_dist_info, init_dist, wrap_fp16_model
+ from os import path as osp
+ 
+ from mmdet import __version__ as mmdet_version
++from mmdet.apis import set_random_seed
+ from mmdet3d import __version__ as mmdet3d_version
+ 
+ # from build_dataset_npu import build_dataset
+@@ -604,9 +605,14 @@ def main():
+     logger.info(f'Distributed training: {distributed}')
+     # logger.info(f'Config:\n{cfg.pretty_text}')
+ 
+-    # Do not pin the process RNG. Samplers that require a shared seed across
+-    # distributed ranks generate and broadcast a fresh seed at runtime.
+-    cfg.seed = None
++    # Match the customer GPU runtime contract exactly.
++    runtime_seed = 0
++    runtime_deterministic = False
++    logger.info(f'Set random seed to {runtime_seed}, '
++                f'deterministic: {runtime_deterministic}')
++    set_random_seed(runtime_seed, deterministic=runtime_deterministic)
++    cfg.seed = runtime_seed
++    meta['seed'] = runtime_seed
+     meta['exp_name'] = osp.basename(args.config)
+ 
+     model = build_model(

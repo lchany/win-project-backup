@@ -1,0 +1,219 @@
+diff --git a/projects/mmdet3d_plugin/optimizers/soap.py b/projects/mmdet3d_plugin/optimizers/soap.py
+index 413d9cb..fbdc6b5 100644
+--- a/projects/mmdet3d_plugin/optimizers/soap.py
++++ b/projects/mmdet3d_plugin/optimizers/soap.py
+@@ -1,5 +1,6 @@
++import os
+ import torch
+ import torch.nn as nn
+ from torch.optim import Optimizer
+ from mmcv.runner.optimizer import OPTIMIZERS
+ from itertools import chain
+@@ -122,10 +123,12 @@ class SOAP(Optimizer):
+         params = [item[0] for item in chunk]
+         grads = [item[1] for item in chunk]
+         states = [item[2] for item in chunk]
+         group = chunk[0][3]
+         beta1, beta2 = group["betas"]
++        for state in states:
++            self._stale_q_install_if_due(state)
+         grad_projected = [
+             self.project(grad, state, merge_dims=group["merge_dims"],
+                          max_precond_dim=group["max_precond_dim"])
+             for grad, state in zip(grads, states)
+         ]
+@@ -332,11 +335,14 @@ class SOAP(Optimizer):
+                      
+         if state['Q'] is None:
+             state['Q'] = self.get_identity_basis(state['GG'])
+             state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)
+         if state['step'] > 0 and state['step'] % state['precondition_frequency'] == 0:
+-            state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)           
++            if self._stale_q_eligible(state, merge_dims):
++                self._stale_q_submit(state, max_precond_dim, merge_dims)
++            else:
++                state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)           
+ 
+     def project_back(self, grad, state, merge_dims=False, max_precond_dim=10000):
+         """
+         Projects the gradient back to the original space.
+         """
+@@ -429,6 +435,176 @@ class SOAP(Optimizer):
+                 exp_avg_sq = exp_avg_sq.reshape(permuted_shape).permute(0, 2, 3, 1)
+             else:
+                 exp_avg_sq = exp_avg_sq.reshape(orig_shape)
+                 
+         state['exp_avg_sq'] = exp_avg_sq
+-        return final
+\ No newline at end of file
++        return final
++
++    # --- STEP-221 stale-Q asynchronous cycle QR -------------------------------
++    _STALE_Q_SHAPES = frozenset({
++        1, 3, 4, 7, 8, 11, 22, 32, 40, 64, 96, 120, 128, 160, 192,
++        220, 256, 352, 440, 512, 768, 1024, 2560,
++    })
++
++    def _stale_q_k(self):
++        cached = getattr(self, "_stale_q_k_cached", None)
++        if cached is None:
++            try:
++                cached = int(os.environ.get("SOAP_STALE_Q_K", "0"))
++            except ValueError:
++                cached = 0
++            if cached < 0:
++                cached = 0
++            self._stale_q_k_cached = cached
++        return cached
++
++    def _stale_q_side_stream(self):
++        stream = getattr(self, "_stale_q_stream_cached", None)
++        if stream is None:
++            stream = torch.npu.Stream()
++            self._stale_q_stream_cached = stream
++        return stream
++
++    def _stale_q_eligible(self, state, merge_dims):
++        k = self._stale_q_k()
++        if k <= 0 or merge_dims:
++            return False
++        if k >= int(state["precondition_frequency"]):
++            return False
++        if not (hasattr(torch, "npu") and torch.npu.is_available()):
++            return False
++        if self._data_format == "channels_last" and state["exp_avg_sq"].dim() == 4:
++            return False
++        for m, o in zip(state["GG"], state["Q"]):
++            if len(m) == 0:
++                continue
++            if m.dtype != torch.float32 or o.dtype != torch.float32:
++                return False
++            if o.shape[0] != o.shape[1] or int(o.shape[0]) not in self._STALE_Q_SHAPES:
++                return False
++        return True
++
++    def _qr_plan(self, state, max_precond_dim=10000, merge_dims=False):
++        """Default-stream half of the cycle basis update; contains no QR."""
++        precond_list = state['GG']
++        orth_list = state['Q']
++
++        matrix = []
++        orth_matrix = []
++        for m, o in zip(precond_list, orth_list):
++            if len(m) == 0:
++                matrix.append([])
++                orth_matrix.append([])
++                continue
++            if m.dtype != torch.float32:
++                matrix.append(m.float())
++                orth_matrix.append(o.float())
++            else:
++                matrix.append(m)
++                orth_matrix.append(o)
++
++        plan = []
++        for ind, (m, o) in enumerate(zip(matrix, orth_matrix)):
++            if len(m) == 0:
++                plan.append(None)
++                continue
++            est_eig = torch.diag(o.T @ m @ o)
++            sort_idx = torch.argsort(est_eig, descending=True, stable=True)
++            o = o.index_select(1, sort_idx)
++            plan.append({
++                "ind": ind,
++                "sort_idx": sort_idx,
++                "power_iter": m @ o,
++                "original_dtype": precond_list[ind].dtype,
++            })
++        return plan
++
++    def _qr_finish(self, plan):
++        """The AICPU-bound half: one linalg.qr per planned factor."""
++        result = []
++        for entry in plan:
++            if entry is None:
++                result.append(None)
++                continue
++            Q, _ = torch.linalg.qr(entry["power_iter"])
++            if Q.dtype != entry["original_dtype"]:
++                Q = Q.to(entry["original_dtype"])
++            result.append(Q)
++        return result
++
++    def _qr_install(self, state, plan, qlist, max_precond_dim=10000, merge_dims=False):
++        """Atomically apply the planned exp_avg_sq permutation and the new Q."""
++        orig_shape = state['exp_avg_sq'].shape
++        if self._data_format == 'channels_last' and len(orig_shape) == 4:
++            permuted_shape = state['exp_avg_sq'].permute(0, 3, 1, 2).shape
++        if merge_dims:
++            exp_avg_sq = self.merge_dims(state['exp_avg_sq'], max_precond_dim)
++        else:
++            exp_avg_sq = state['exp_avg_sq']
++
++        final = []
++        for entry, Q in zip(plan, qlist):
++            if entry is None:
++                final.append([])
++                continue
++            exp_avg_sq = exp_avg_sq.index_select(entry["ind"], entry["sort_idx"])
++            final.append(Q)
++
++        if merge_dims:
++            if self._data_format == 'channels_last' and len(orig_shape) == 4:
++                exp_avg_sq = exp_avg_sq.reshape(permuted_shape).permute(0, 2, 3, 1)
++            else:
++                exp_avg_sq = exp_avg_sq.reshape(orig_shape)
++
++        state['exp_avg_sq'] = exp_avg_sq
++        state['Q'] = final
++        return final
++
++    def _stale_q_submit(self, state, max_precond_dim, merge_dims):
++        if state.get("_stale_q_pending") is not None:
++            raise RuntimeError("SOAP stale-Q pending overlap (k must stay < frequency)")
++        plan = self._qr_plan(state, max_precond_dim, merge_dims)
++        stream = self._stale_q_side_stream()
++        stream.wait_stream(torch.npu.current_stream())
++        with torch.npu.stream(stream):
++            qlist = self._qr_finish(plan)
++        for entry in plan:
++            if entry is not None:
++                # record_stream lets the allocator reclaim the block only after
++                # the side stream has consumed it, so the reference can go now
++                # instead of being held for k steps.
++                entry["power_iter"].record_stream(stream)
++                entry["power_iter"] = None
++        event = torch.npu.Event()
++        event.record(stream)
++        state["_stale_q_pending"] = {
++            "plan": plan,
++            "qlist": qlist,
++            "event": event,
++            "target_step": int(state["step"]) + self._stale_q_k(),
++            "max_precond_dim": max_precond_dim,
++            "merge_dims": merge_dims,
++        }
++
++    def _stale_q_install_if_due(self, state, force=False):
++        pending = state.get("_stale_q_pending")
++        if pending is None:
++            return
++        if not force and int(state["step"]) < int(pending["target_step"]):
++            return
++        pending["event"].synchronize()
++        current = torch.npu.current_stream()
++        for value in pending["qlist"]:
++            if torch.is_tensor(value):
++                # Allocated on the side stream, consumed here on the default one.
++                value.record_stream(current)
++        self._qr_install(
++            state, pending["plan"], pending["qlist"],
++            pending["max_precond_dim"], pending["merge_dims"],
++        )
++        state.pop("_stale_q_pending", None)
++
++    def state_dict(self):
++        """Flush any in-flight basis so the persisted schema stays the 7-key contract."""
++        for state in self.state.values():
++            self._stale_q_install_if_due(state, force=True)
++        return super().state_dict()

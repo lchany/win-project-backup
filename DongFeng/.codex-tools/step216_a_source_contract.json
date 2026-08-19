@@ -1,0 +1,39 @@
+{
+  "schema": "step216_source_contract_v3",
+  "runnable": true,
+  "runtime_artifacts": {
+    "adapter": {"name": "step215_e_real_soap_stateful_adapter.py", "bytes": 16208, "sha256": "4ea6be8ecdd45a746b3d22f9d37d0ede8534ef8189c2734f62e9c3119d4591a4"},
+    "config": {"name": "aligned_gpu_contract_npu_runtime.py", "bytes": 145464, "sha256": "02aca0c7a33e05e972e268aecc1932bbf10f611fa523ec4696b94d58cd7f56a5"},
+    "checkpoint": {"name": "gpu_contract_seed0_iter30_baseline.pth", "bytes": 1607991401, "sha256": "f001a7d55c19b74d84dd1384f262acef786237822e9581203176853d735f997d"},
+    "soap": {"name": "soap.py", "bytes": 19169, "sha256": "0e49429dbca9d9a2546c29f54e79639265f7468703ba4b36fa3b3796861a1077"},
+    "community_config": {"name": "step216_a_turbosoap_brockett_core_config.json", "bytes": 1309, "sha256": "a851494ec241a633d6444d4398c946ebf8a2eed0c93e49cdeaf242d52fa43451"}
+  },
+  "source_files": [
+    {"name": "step216_a_brockett_policy.py", "bytes": 10645, "sha256": "1bcbbad62c5d699f406ec8298a6e5de0d3ebcbac6475722177ef23b84271b409"},
+    {"name": "step216_a_brockett_qr_gate.py", "bytes": 25815, "sha256": "33d92ab8472c731e5dca4b927efcdf591632cd6ea68f2105ca0c5b0680a9e3f3"},
+    {"name": "step216_a_brockett_qr_summarize.py", "bytes": 7087, "sha256": "9869ecf680a9f1ed22f9a38b4725e745367a09ad98791fa167fd858c7e5596f9"},
+    {"name": "step216_a_world8_controller.py", "bytes": 8889, "sha256": "30747643a6d1654bbd50e8c9b5c2c85583150df6eab05cbfc95ab445c9ec22ec"},
+    {"name": "step216_a_run_inside_container.sh", "bytes": 3038, "sha256": "e39dc3ff002e6d7541da1183c0d6ef7fe4eba44487c69ca6372b6519263be482"},
+    {"name": "step216_a_host_launch_contract.sh", "bytes": 4829, "sha256": "4f89d42147a93d6f58977fdc4dbed5c0f3d2835926bf46b19c2a694704e05bf6"},
+    {"name": "test_step216_a_brockett_policy.py", "bytes": 2486, "sha256": "b91601cf006213326201aaad9a0ec30fcfa1f58582aac226f59a5a0486765a2c"},
+    {"name": "test_step216_a_static_contract.py", "bytes": 9766, "sha256": "74f4e40046d4d54b071fa1ffb4ab1c45415ce22f7019a7a3df308ae4140a849b"}
+  ],
+  "runtime_protocol_schema": {
+    "controller_execution": "host_python",
+    "container_runner_controller": "disabled",
+    "ready_pid_field": "container_pid",
+    "npu_smi_pid_field": "host_pid",
+    "host_to_container_mapping": "proc_status_nspid_last"
+  },
+  "soap_runtime_schema": {
+    "checkpoint_top_level_keys": ["meta", "optimizer", "state_dict"],
+    "optimizer_group_count": 767,
+    "stateful_group_count": 559,
+    "state_keys": ["GG", "Q", "exp_avg", "exp_avg_sq", "precondition_frequency", "shampoo_beta", "step"],
+    "state_step": 26,
+    "q_factor_count": 543,
+    "q_shape_count": 23,
+    "project_bound_signature": "(grad, state, merge_dims=False, max_precond_dim=10000)",
+    "project_back_bound_signature": "(grad, state, merge_dims=False, max_precond_dim=10000)"
+  }
+}

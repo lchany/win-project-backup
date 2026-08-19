@@ -1,0 +1,14 @@
+diff --git a/tools/ddp_train.sh b/tools/ddp_train.sh
+index 26aaf4c..17226b7 100644
+--- a/tools/ddp_train.sh
++++ b/tools/ddp_train.sh
+@@ -1,8 +1,9 @@
+ \#!/usr/bin/env bash
+ 
+ set -x
++export PYTORCH_NPU_ALLOC_CONF="expandable_segments:True"
+ export FUNCTION=${1}
+ 
+ DEBUG=${DEBUG:-false}
+ MODE=${MODE:-single}
+ 

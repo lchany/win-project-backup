@@ -1,0 +1,75 @@
+diff --git a/mmcv/runner/hooks/logger/text.py b/mmcv/runner/hooks/logger/text.py
+index 3f75900..6ab7a20 100644
+--- a/mmcv/runner/hooks/logger/text.py
++++ b/mmcv/runner/hooks/logger/text.py
+@@ -32,10 +32,13 @@ class TextLoggerHook(LoggerHook):
+         reset_flag (bool, optional): Whether to clear the output buffer after
+             logging. Default: False.
+         interval_exp_name (int, optional): Logging interval for experiment
+             name. This feature is to help users conveniently get the experiment
+             information from screen or log file. Default: 1000.
++        memory_interval (int, optional): Interval for synchronizing the maximum
++            allocated memory across distributed ranks. The latest sampled value
++            is reused between synchronizations. Default: 1.
+         out_dir (str, optional): Logs are saved in ``runner.work_dir`` default.
+             If ``out_dir`` is specified, logs will be copied to a new directory
+             which is the concatenation of ``out_dir`` and the last level
+             directory of ``runner.work_dir``. Default: None.
+             `New in version 1.3.16.`
+@@ -57,18 +60,23 @@ class TextLoggerHook(LoggerHook):
+                  by_epoch: bool = True,
+                  interval: int = 10,
+                  ignore_last: bool = True,
+                  reset_flag: bool = False,
+                  interval_exp_name: int = 1000,
++                 memory_interval: int = 1,
+                  out_dir: Optional[str] = None,
+                  out_suffix: Union[str, tuple] = ('.log.json', '.log', '.py'),
+                  keep_local: bool = True,
+                  file_client_args: Optional[Dict] = None):
+         super().__init__(interval, ignore_last, reset_flag, by_epoch)
+         self.by_epoch = by_epoch
+         self.time_sec_tot = 0
+         self.interval_exp_name = interval_exp_name
++        if memory_interval < 1:
++            raise ValueError('memory_interval must be a positive integer')
++        self.memory_interval = memory_interval
++        self._max_memory_mb = None
+ 
+         if out_dir is None and file_client_args is not None:
+             raise ValueError(
+                 'file_client_args should be "None" when `out_dir` is not'
+                 'specified.')
+@@ -230,11 +238,14 @@ class TextLoggerHook(LoggerHook):
+                 log_dict['lr'].update({k: lr_[0]})
+ 
+         if 'time' in runner.log_buffer.output:
+             # statistic memory
+             if torch.cuda.is_available():
+-                log_dict['memory'] = self._get_max_memory(runner)
++                if (self._max_memory_mb is None
++                        or cur_iter % self.memory_interval == 0):
++                    self._max_memory_mb = self._get_max_memory(runner)
++                log_dict['memory'] = self._max_memory_mb
+ 
+         log_dict = dict(log_dict, **runner.log_buffer.output)  # type: ignore
+ 
+         self._log_info(log_dict, runner)
+         self._dump_log(log_dict, runner)
+diff --git a/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py b/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
+index c2319bf..b0d06d8 100644
+--- a/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
++++ b/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
+@@ -50,11 +50,11 @@ custom_imports = dict(
+     allow_failed_imports=False
+ )
+ log_config = dict(
+     interval=1,
+     hooks=[
+-        dict(type='TextLoggerHook'),
++        dict(type='TextLoggerHook', memory_interval=10),
+         dict(type='TensorboardLoggerHook')
+     ])
+ 
+ # custom_hooks = [
+ #     dict(type='UnusedParamCheckHook'),   

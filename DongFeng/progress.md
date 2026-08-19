@@ -1,126 +1,97 @@
 # Progress Log
 
-## 2026-08-11：8 卡 profile 与 rank0 advisor 完成
+历史全文已备份到 `planning_backup/2026-08-18/`。本文件从 2026-08-18 规划文件轮换后重新开始。
 
-- 8 个 rank 的 TorchNPU profile 均已完整落盘到远端诊断目录，总量约 68.9 GiB；未下载任何远端数据或产物。
-- 第 11 步 SOAP 周期长尾在 profile 中复现，8 rank 均输出 profiler 完成标记。
-- rank0 `msprof-analyze advisor all` 已成功完成，确认 E2E 中 NPU 空闲占 89.74%，并产出 4 类亲和 API、AICPU、在线编译等候选。
-- advisor 规则库低于实际 CANN/Torch 版本，所有候选必须结合当前官方/社区成熟实现与 8 rank timeline/CSV/DB 再核验，不能直接改代码。
-- 当前下一步：远端就地聚合 8 rank profile，定量定位 SOAP CPU QR/D2H 与其他候选；不修改业务代码，不把远端数据拉到本地。
+## Session: 2026-08-18
 
-## Session: 2026-08-11
-
-### Phase 1: 现状审计与计划制定
+### Phase 8: SOAP 精度合同与社区 QR
 - **Status:** in_progress
-- **Started:** 2026-08-11
+- **Started:** 2026-08-18
 - Actions taken:
-  - 安装并调用用户级 `planning-with-files` 技能。
-  - 完整读取技能说明与标准模板。
-  - 建立用户批准门禁：批准前只读调查，不修改业务代码。
-  - 创建初始任务计划、发现记录和进度日志。
-  - 读取本地项目规则和远程机器资料（输出已脱敏）。
-  - 确认当前本地目录不是代码仓库，后续代码调查需在远程环境只读完成。
-  - 确认远程访问拓扑、共享代码位置规则和训练必须在 NPU 机器执行的约束。
-  - 检查本地 SSH 能力：有 OpenSSH；未发现 PuTTY、Posh-SSH 或现成 `paramiko`。
-  - 静态检查本地临时快照，定位随机性、CPU 搬运、Scikit-learn KMeans、调试开关和 NPU 编译/精度配置候选。
-  - 调研 Ascend 官方 TorchNPU Profiler、msprof-analyze、msTransplant/PyTorch Analyse 和 OpPlugin。
-  - 将阶段顺序调整为：随机性移除独立提交 -> 在该提交上建立性能基线 -> 逐项性能优化。
-  - 补充性能工具链、初始候选 backlog、统一 A/B 口径、提交规则和停止条件。
-  - 按用户补充要求加入性能证据门禁：非明确问题必须先经工具测试定位，明确问题也必须完成修改后 A/B 验证。
-  - 加入训练命令来源规则：基线、profile 和回归均参考远程当前目录已有 `.sh` 脚本，并记录脚本 hash 与实际参数。
-  - 加入 8 卡训练硬约束：所有正式训练、profile、A/B 和回归使用 8 卡，并记录各 rank 与通信指标。
-  - 用户已明确批准完整计划，进入 Phase 1 远程只读审计。
-  - 已使用 planning-with-files 对获批计划建立 SHA-256 证明（前缀 `18756331b2e7`）。
-  - 在 Codex 用户工具缓存安装 Paramiko，并创建本地脱敏 SSH 辅助脚本；未写入远程仓库。
-  - 验证跳板机与 NPU 训练机连接成功，枚举共享目录中的 Git 仓库候选。
-  - 读取首个目标 NPU 仓库状态：当前为 `ascend_npu`@`f189414`，未发现 `asend_npu_optimize`，开始跨仓库核对。
-  - 跨仓库确认真实目标为主仓库的 `ascend_npu_optimize`；审计其 HEAD `72a266b 【loss对齐】随机性移除`，工作区干净且 diff check 通过。
-  - 完整审阅 `72a266b` patch，确认固定 seed 主体已移除，同时发现遗留随机性调试输出和 `synchronize_after_backward` 归属需继续核实。
-  - 扫描现有训练脚本：`run_train.sh` 当前为单卡；底层 `tools/ddp_train.sh` 支持多卡，继续寻找现成 8 卡封装脚本。
-  - 审计 `f189414` 引入内容，发现单卡切换、DBG_NPU、sampler 调试和 `if True` 强制逻辑未被 `72a266b` 完整还原。
-  - 确认多个现有训练脚本默认 8 卡，开始选择 canonical 8 卡入口。
-  - 初选 `tools/local_train_spetr_debug.sh` 为 canonical 8 卡入口；发现无关旧环境脚本含凭据后停止使用并增强输出脱敏。
-  - 完成随机性历史归属审计，确定补齐还原项；MSDA CPU fallback 留待工具定位后的性能优化阶段。
-  - 将 7 个补齐还原文件上传远程工作区；语法与 diff check 通过，等待 8 卡验证后 amend。
-  - 检查 NPU 资源与进程：16 个设备空闲；发现旧单卡 launcher 被暂停且无 NPU 占用，计划以独立端口/work-dir 进行 8 卡验证。
+  - 备份根目录 `task_plan.md` / `findings.md` / `progress.md` 到 `planning_backup/2026-08-18/`。
+  - 按当前 STEP-265 状态重建精简规划文件，去掉 STEP-001～264 历史正文。
+  - STEP-268：后 8 卡对 192×192 加严测试 53 次。47 通过；同一份 BAD A 在部分卡上 AICore 崩溃（QrV2 MTE 越界）。未改业务代码。
+  - STEP-269：29 例隔离扫描完成；layout/warmup 非触发条件；npu2–7 507015。已读 `qr_v2.cpp` 最后 tile 空 LARFB 路径。
+  - STEP-270：npu2 上除 64×64（AICPU 回退）外全部 507015；钉死 QrV2 在 visible npu2–7 设备分域失效。
+  - STEP-272：前 8 卡空闲后 `eye(192)` 探针 7/8 失败；换卡不能规避。失败跟 visible npu 下标 2–7 有关，不是 phy 10–15 特有。
+  - STEP-273：bypass 前后 8 卡 16/16。
+  - STEP-274：后 8 卡 + bypass 完整 30 step，rc=0，无 NaN；loss **30/30 ≤2%**、23/30 ≤1%；Iter2–30 372.9 s（2.67×GPU）。
+  - STEP-282：回滚 site-packages 192 bypass 与 SOAP 诊断改写；`soap.py` 相对 `669a138` 只换 `mx_driving_cloud.linalg.qr`。未 commit。
+  - STEP-283：删除 git 仓库内未跟踪测试/诊断残留（`$REPO/diagnostics/`、`kernel_meta/`、`no_track_*.pt.trace.7z`）；共享盘 `.../wfc1_leicheng/diagnostics` 未动。SOAP dump 标记为 0。
+  - STEP-284：只提交 `soap.py` 为 `9565044`。相对 `669a138` 仅 5 行 QR 替换。未 push。
+  - STEP-285：8 个 BAD `.pt` × 8 可见卡独立调用官方 `mx_driving_cloud.linalg.qr`。npu0 8/8 有限；npu2–7 48/48 崩 507015。
+  - STEP-294：按用户要求准备在新 NPU 机用同一 BAD tensor 对 logical npu1–7 做独立单卡 QR 测试；前检发现完整名称 `mapqr-leicheng` 的容器不存在（运行/停止列表均无），物理卡 4–15 正有高 AICore 占用。遵守容器与资源门禁，未启动算子调用，未改远端环境。
+  - STEP-299：按最新 `机器IP.md` 连接 42 远端，在精确容器 `mapqr-leicheng` 中上传本地 rank0 BAD tensor 副本；后 7 张物理卡分别单独可见、各独立进程调用一次官方 `mx_driving_cloud.linalg.qr`。7/7 Q/R 有限，NaN/Inf=0，无 507015；输入 SHA-256 与本地一致，测试结束无残留进程。
+  - STEP-301：后 8 卡同时可见，logical npu1–7 各独立进程显式 `torch.npu.set_device(k)` 后调用同一 BAD tensor。7/7 Q/R 有限、NaN/Inf=0、无 507015，数值与单卡可见结果一致。由此纠正 STEP-270/285 的“设备分域”归因：旧 harness 只把 A 放到 npu:k，却未设置 current device。
+  - STEP-302：修正给算子同事的 README 与 `repro_qr.py`，加入强制 `set_device`/current-device 断言并撤销“npu2–7 必崩”口径；生成不覆盖旧包的新文件 `qr_operator_repro_for_colleague_step301_corrected.zip`。
+  - STEP-303：在 42 远端 `mapqr-leicheng` 容器内，保持 8 卡同时可见并显式 `set_device`，对同一 BAD192 在 logical npu0/1/2 各连续调用 512 次官方 QR。3/3 跑满，Q/R 全有限、无 NaN/Inf、无 507015，`recon_absmax≈1.954e-14`；说明当前单算子高频重放仍未复现训练态 NaN。
 - Files created/modified:
-  - `task_plan.md`（规划文档）
-  - `findings.md`（调查记录）
-  - `progress.md`（进度记录）
+  - `planning_backup/2026-08-18/task_plan.md`（备份，167380 bytes）
+  - `planning_backup/2026-08-18/findings.md`（备份，376500 bytes）
+  - `planning_backup/2026-08-18/progress.md`（备份，189700 bytes）
+  - 根目录三份规划文件（重建）
+  - `操作步骤.md`（追加 STEP-266、STEP-274）
 
-## Planned Test Result Schema
-| Run ID | Commit | Environment | Command/Data | Warmup | Iterations | Throughput | Step Time P50/P95 | Device Memory | Host CPU | Correctness | Profile Artifact |
-|---|---|---|---|---:|---:|---:|---:|---:|---:|---|---|
-| BASELINE-TBD | 待确认 | 待采集 | 待确认 | 待确认 | 待确认 | 待测 | 待测 | 待测 | 待测 | 待测 | 待生成 |
+## Carry-forward Snapshot
+- STEP-265 已完成根因拆分；STEP-266 已把 NaN 钉到 mx QR 最后 64 列 tile。未改业务代码、未新开训练。
+- 8 个 BAD `.pt` 已在本地并传到同事机 `/home/ubuntu/`。
+- 权威 HEAD `9565044`：`669a138` SOAP + 官方 mx QR。未 push、未开训。
+- 双门禁下精度达标路径现有两条：63861df CPU FP64 SOAP（30/30 ≤2%，6.2–6.4×GPU）；STEP-274 当前工作树 + QR bypass（30/30 ≤2%，2.67×GPU）。后者仍依赖容器内 `linalg.py` patch，未 commit。
+
+## Test Results
+| Test | Input | Expected | Actual | Status |
+|------|-------|----------|--------|--------|
+| STEP-265 根因拆分 | 既有 30-step A/B + STEP-260 dump | 区分 NaN 与 11/30 | NaN=社区 QR；11/30=63861df 风格 SOAP | ✓ |
+| BAD tensor 直传 | 8× `[192,192]` `.pt` | 同事机可 `torch.load` | 8/8 上传成功 | ✓ |
+| STEP-269 布局/warmup | 9 layout + warmup + 8卡 | 排除 layout/warmup | npu0 23/23 OK；npu2–7 6×507015 | ✓ |
+| STEP-270 设备分域 | identity/sample/BAD×8卡 | 定位 QrV2 设备 bug | npu2–7 任意>80 崩；64×64 AICPU OK | ✓ |
+| STEP-272 前8卡 eye(192) | 物理 0–7 空闲探针 | 判断换卡能否规避 | npu0 OK；npu1 recon=1；npu2–7 507015 | ✓ |
+| STEP-274 bypass 30step | 后8卡 + MX_QR_VALIDATION_BYPASS=1 | 对比 GPU loss/耗时 | 30/30 ≤2%，372.9 s / 2.67×GPU | ✓ |
+| STEP-275 commit+800step | 后8卡 + 硬编码 linalg@10f897d | 800 step 训练 | Iter13 假包遮蔽官方 wheel 失败 | ✗ |
+| STEP-285 8×BAD 官方 QR 单测 | 8 文件 × 8 可见卡，无 bypass | npu0 全过；npu2–7 全 507015 | 64 例：16 有限 / 48 崩溃 | ✓ |
+| STEP-294 新机 BAD 单卡复测前检 | logical npu1–7，各独立进程 | `mapqr-leicheng` 存在且目标卡可用 | 同名容器不存在；物理卡 4–15 忙 | blocked |
+| STEP-299 7 张物理卡单独可见 QR | 同一 rank0 BAD `[192,192]`，每进程仅 1 张后卡可见 | 判断 NaN/Inf/507015 是否随物理卡单卡必现 | 7/7 有限；NaN/Inf=0；507015=0；recon_absmax=1.954e-14 | ✓ |
+| STEP-301 8 卡可见 + 显式 set_device | 同一 BAD，logical npu1–7 各独立进程 | 验证旧 507015 是否由 current-device 漏绑导致 | 7/7 有限；NaN/Inf=0；507015=0；current_device 全匹配 | ✓ |
+| STEP-303 高频 BAD192 QR 重放 | 同一 BAD `[192,192]`，8 卡可见，logical npu0/1/2 各 512 次 | 检查正确 `set_device` 下是否仍会在重复调用中出 NaN/507015 | 3/3 跑满；Q/R 全有限；NaN/Inf=0；507015=0；recon_absmax=1.954e-14 | ✓ |
 
 ## Error Log
 | Timestamp | Error | Attempt | Resolution |
-|---|---|---:|---|
-| - | 暂无 | 0 | - |
-| 2026-08-11 | 系统 Python/py 的 `paramiko` 探测命令无有效输出并以 1 退出 | 1 | 停止重复，转而检查已安装 SSH 工具 |
-| 2026-08-11 | 第一次 CPU 路径 `rg` 命令因 PowerShell 引号/过滤组合导致部分搜索未执行 | 1 | 拆分模式并简化引号 |
-| 2026-08-11 | 第二次 CPU 路径搜索出现 PowerShell 字符串终止符错误 | 2 | 改用单个双引号正则，第三次成功 |
-| 2026-08-11 | WSL 探测失败，系统未安装可用发行版 | 1 | 不安装 WSL，不改变本机环境；使用现有资料继续规划 |
-| 2026-08-11 | 首次执行 `attest-plan.ps1` 被 Windows ExecutionPolicy 阻止 | 1 | 改用独立 PowerShell 进程并指定一次性 `ExecutionPolicy Bypass`，证明成功 |
-| 2026-08-11 | 跳板机旧版 Git 不支持 `git -C` | 1 | 后续使用 `(cd repo && git ...)`，不改变远程 Git 环境 |
-| 2026-08-11 | 读取远程训练日志时损坏字符触发本地 GBK `UnicodeEncodeError` | 1 | SSH 脱敏助手改为 UTF-8 容错输出后再诊断 |
+|-----------|-------|---------|------------|
+| 2026-08-18 | 同事机账号 `ubantu` 认证失败 | 1 | 改用 `ubuntu` |
+| 2026-08-18 | 跳板机直连同事机 Timeout | 1 | 本机下载后再直传 |
+| 2026-08-19 | STEP-299 启动器等待 SSH 输出 30 秒超时 | 1 | 未重复启动；只读轮询既有远端目录，确认任务正常完成 rc=0 |
+| 2026-08-19 | STEP-303 首次 SSH 开 channel 超时；二次运行 heredoc 包装尾部报 `NameError: PY` | 各 1 | 按规则只做一次受控重试；第二次异常发生在 summary 已写出之后，结果有效，仅需后续清理本地包装脚本 |
 
 ## 5-Question Reboot Check
 | Question | Answer |
-|---|---|
-| Where am I? | Phase 1：只读审计与计划制定 |
-| Where am I going? | 基线、随机性移除、算子优化、系统优化、回归交付 |
-| What's the goal? | 在保持正确性的前提下获得可复现的 Ascend NPU 性能收益 |
-| What have I learned? | 见 `findings.md` |
-| What have I done? | 已建立规划文件与批准门禁，尚未修改业务代码 |
-## 2026-08-11：随机性移除提交前验证准备
+|----------|--------|
+| Where am I? | Phase 8 / STEP-285：8 个 BAD `.pt` 官方 QR 单测完成 |
+| Where am I going? | 同事侧需用 8 可见卡测 npu2；禁止只用 npu0 判通过 |
+| What's the goal? | 8 NPU 吞吐 1:1，且 loss ≤2%、耗时大幅下降 |
+| What have I learned? | 同事「单测没问题」= npu0 冷跑；同 A 在 npu2–7 必崩 507015 |
+| What have I done? | 提交 `9565044`；64 例独立 QR 单测 |
 
-- 已确认目标 NPU 宿主机有 16 个健康逻辑设备，检查时无实际 NPU 计算占用。
-- 已确认训练必须从现有 Docker 容器运行；容器内 PyTorch/torch_npu 可识别全部 NPU。
-- 已确定使用仓库既有 `tools/ddp_train.sh` 启动 8 卡短训练，使用独立端口和仓库外独立结果目录。
-- 已确定启动前显式清除固定随机性相关环境变量，避免继承历史进程配置。
-- 当前随机性移除补充修改仍未提交；待 8 卡短训练验证通过后，才会 amend 到唯一提交 `【loss对齐】随机性移除`。
-## 2026-08-11：随机性移除阶段完成
+---
+*Update after completing each phase or encountering errors*
 
-- 8 卡短训练验证通过：10 个 iteration，稳态 step（第 3-10 步）约 2.9-3.45 秒，无 NaN/Inf、OOM、HCCL 或 traceback 异常。
-- 已清理历史停止态的 29507 单卡任务；本次 29627 验证任务结束后也已退出。
-- 已将补充审计后的随机性/调试清理 amend 为唯一提交：`63861dfd920ab9829512b1e4a000eefd1ffcfbea 【loss对齐】随机性移除`。
-- 提交共涉及 13 个文件，53 行新增、210 行删除；未包含算子性能修改，也未包含训练生成物。
-- 远程目标仓库工作树已恢复干净。下一阶段进入该提交上的 8 卡性能基线与 profiler 采集。
-## 2026-08-11：新增逐步操作记录硬规则
+## Session: 2026-08-19 GitHub 发布
 
-- 已创建 `操作步骤.md`，回填从技能安装、远程审计、随机性移除、8 卡验证、提交到三次正式基线的完整逻辑操作链。
-- 后续每一步均在执行前记录目的/原因/指令，执行后记录现象/说明/下一步；远程敏感信息继续脱敏。
-
-## 2026-08-11：三次 8 卡普通性能基线完成
-
-- 基线 commit：`63861dfd920ab9829512b1e4a000eefd1ffcfbea`。
-- 口径：8 卡（0-7）、world size 8、每卡 batch 1、全局 batch 8、每次 30 step、独立进程/端口/输出目录；脚本和配置 hash 已冻结。
-- 三次 30-step 均值：28.532、28.213、30.051 秒/step；三次均值中位 28.532 秒，CV 3.39%。
-- pooled 真实端到端均值：28.932 秒/step，吞吐 0.2765 sample/s。
-- 排除冷启动与周期空洞后的 pooled 中位：3.186 秒/step，P95 7.074 秒，理想稳态吞吐 2.5110 sample/s。
-- 每 10 步后的第 11/21 步稳定出现 host 长尾，6 次中位 271.486 秒、P95 280.307 秒；3/3 次独立运行复现。
-- 现场证据：长尾期间 NPU AICore 0%，主 rank host CPU 满载，主线程落在 NumPy/OpenBLAS；下一步必须用 8 卡 profiler 覆盖正常 step 与第 10→11 步边界，定位具体调用链。
-- 三次均无 NaN/Inf、OOM、HCCL 或 traceback；最大记录显存 5067 MB；运行生成物已归档，远程工作树干净。
-# 2026-08-11 新增硬规则
-
-- 禁止把任何远端数据、日志、profile、checkpoint、模型或训练产物拉到本地；所有原始分析必须远端就地完成，本地只记录脱敏摘要。
-
-## 2026-08-11：Phase 4 首个 SOAP 性能优化已提交
-
-- **Status:** complete（本逻辑优化）；Phase 4 其他候选仍待逐项工具定位。
-- 已提交 `fb979b28ee3d417806a48c0d643676fd7d38541e 【npu性能优化】SOAP预条件器NPU亲和优化`，父提交为不可变的 `63861dfd... 【loss对齐】随机性移除`；未 push。
-- 变更仅包含实际注册的 SOAP 实现与目标 config，提交后远端工作树干净；临时 hook/config、kernel cache 和 profile 均已归档到远端诊断目录。
-- 三次 8 卡 30-step After：均值 5.559/5.674/5.719 秒，CV 1.187%；pooled 5.651 秒、1.4158 sample/s。相对基线 28.932 秒、0.2765 sample/s，速度 5.120×、吞吐提升 412.03%。
-- 周期中位 271.486→15.578 秒（17.428×）；普通稳态中位 3.186→3.178 秒；显存 5067→4070 MB。90 个 After step 的 loss/grad 均有限，三次均无 fallback、traceback、OOM、HCCL error。
-- 优化后轻量 rank0 TorchNPU profile（训练仍为 8 卡）证明 CPU FP64 QR/mm 消失；剩余 543 次官方 ACLNN AICPU QR 共 22.674 秒，是下一阶段明确热点。
-- 启动/工具错误已记录：前三个 A/B 启动尝试因 config/PYTHONPATH 上下文失败且均为 0 step；首轮外层 monitor 未按 30 步停止，最终严格只取前 30 步；原生 max_iters 测试夹具解决后两轮；After profiler 准备命令本地超时但服务端继续运行，精确核验后接管唯一任务，避免重复启动。
-- 下一步建议：先对剩余 2560 AICPU QR 调研成熟分块 SOAP/Shampoo/AI Core 方案；若无版本匹配的成熟实现，则转向 profile 已列出的其他候选（在线编译、亲和 transpose/layer norm、fused grad norm），每项仍遵循修改前工具证据、单变量修改、三次 8 卡 A/B 和独立提交。
-
-## 2026-08-11：DataLoader worker=2 优化已提交
-
-- **Status:** complete（本逻辑优化）。
-- 提交：`6477a5b6eab010b36c9ffb14eee4ec127bc1d7f8 【npu性能优化】DataLoader多进程加载`；仅将目标 config 的 `workers_per_gpu` 从 0 改为 2，未 push。
-- 证据：After profiler 的单进程 DataLoader host self 约 1.5 秒/step；worker=2 三次 8 卡 30-step run 均值 4.042/4.040/4.024 秒，CV 0.198%，pooled 吞吐 1.9825 sample/s。
-- 相对上一提交 worker=0 再提速 1.400×；相对最初随机性移除基线累计提速 7.170×。三次均无多进程、正确性或 NPU fallback 异常，显存不变。
-- worker=4 已实测，无额外端到端收益，因此不采用。所有临时 config/patch/log 均留在远端诊断目录或已清理本地临时文件，远端工作树干净。
+- 启用 `github:yeet` 与 `planning-with-files` 工作流。
+- GBrain 只读经验召回未命中相关经验；无正式 worker token，未生成 receipt。
+- 确认仓库根目录、`main` 分支和 GitHub 远端；当前项目存在大量修改及未跟踪文件。
+- 安装 GitHub CLI 2.97.0；认证检查显示尚未登录。
+- 发现 `DongFeng` 内有约 452 MB 原始 profiling 压缩包，兄弟目录另有约 711 MB 安装包；二者均不能作为普通 GitHub 文件提交，本次仅处理 `DongFeng`。
+- 发现 `机器IP.md` 有本地修改；按项目规则明确排除，不把连接信息写入日志或提交。
+- 根据用户确认，统一排除大量二进制、缓存、训练与 profiling 产物；发布分支为 `codex/publish-local-project`，暂存区仅含代码、脚本、配置、补丁与报告，未发现常见二进制扩展。
+- Gitleaks 安装成功；首次执行因 PowerShell 对不同对象类型的可执行路径属性解析错误而未启动扫描，已记录并改用类型兼容路径解析。
+- Gitleaks 已实际扫描约 5.01 MB 暂存内容，发现 8 个疑似敏感项；未输出或记录匹配值，进入按文件/行号/规则定位阶段。
+- 已定位疑似项分布在两个 `train_spetr.py` 副本和一份生成的 HTML 报告；首次只提取关键词元数据的 PowerShell 命令有语法错误，未读取或输出敏感值，已改写实现。
+- 8 个命中均对应硬编码 `wandb_key`。第一次按引号结构替换时因原行格式不同而未匹配，未修改文件；改用变量名整行锚定的固定空值替换。
+- 第二次同类替换仍未匹配，已停止重试并派发只读故障召回。根因初步确认是 PowerShell 单引号正则里多写了一层反斜杠，导致匹配的是字面 `\s` 而非空白字符类；未读取、输出或改写秘密值。
+- 故障召回分类为“部分适用”：只按元数据定位、停止盲替换、修改后逐文件复核并重扫。结构化替换脚本首次运行在错误消息插值处发生 PowerShell 解析错误，早于文件读写；已明确变量边界修正。
+- 已精确移除 8 处硬编码 `wandb_key`，未输出原值；Gitleaks 复扫约 5.01 MB 暂存内容为 0 命中。
+- 暂存区 267 个文件、常见二进制候选 0；忽略清单覆盖 1 个原始 trace 压缩包、训练日志、16 个 tensor 和 539 个 Python 缓存文件。
+- 149 个暂存 Python 文件全部通过 AST 语法解析。
+- `git diff --cached --check` 仅报告历史源快照、补丁与生成 HTML 的尾随空白/EOF 空行；为避免改变补丁语义不做全量格式化。
+- GitHub CLI 仍未登录；GitHub 连接器首次元数据查询发生传输错误，尚未产生任何远端写入。
+- 最终门禁：267 个暂存文件全部位于 `DongFeng/`，二进制候选 0，最大文件 1.155 MB，Gitleaks 0 命中。首次提交因仓库未配置作者身份而停止，未生成 commit；将复用上一条提交作者并仅做 repo-local 配置。

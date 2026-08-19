@@ -21,6 +21,8 @@ if hasattr(sys.stderr, "reconfigure"):
 
 ROOT = Path(__file__).resolve().parents[1]
 MACHINE_INFO = ROOT / "机器IP.md"
+REQUIRED_TARGET_LAST_OCTET = "42"
+REQUIRED_TARGET_HOSTNAME = "yfzy-zhsc-910c-1.novalocal"
 
 
 def value_after_colon(line: str) -> str:
@@ -31,23 +33,29 @@ def value_after_colon(line: str) -> str:
 
 
 def parse_machine_info() -> dict[str, object]:
-    lines = MACHINE_INFO.read_text(encoding="utf-8").splitlines()
-    jump_host = re.search(r"(?:\d{1,3}\.){3}\d{1,3}", lines[1]).group(0)
-    jump_port = int(value_after_colon(lines[2]))
-    jump_user = value_after_colon(lines[3])
-    jump_password = value_after_colon(lines[4])
+    text = MACHINE_INFO.read_text(encoding="utf-8")
+    jump_host = re.search(r"跳板机[\s\S]*?((?:\d{1,3}\.){3}\d{1,3})", text).group(1)
+    jump_port = int(re.search(r"跳板机[\s\S]*?端口\s*[:：]\s*(\d+)", text).group(1))
+    jump_user = re.search(r"跳板机[\s\S]*?账号\s*[:：]\s*(\S+)", text).group(1)
+    jump_password = re.search(r"跳板机[\s\S]*?密码\s*[:：]\s*(\S+)", text).group(1)
 
-    target_match = re.search(
-        r"((?:\d{1,3}\.){3}\d{1,3})\s+(\S+)\s+密码\s*[:：]\s*(\S+)",
-        lines[8],
+    primary = re.search(
+        r"主机器[\s\S]*?((?:\d{1,3}\.){3}\d{1,3})\s+(\S+)\s+密码\s*[:：]\s*(\S+)",
+        text,
     )
-    if not target_match:
-        raise ValueError("unable to parse NPU host line")
-    target_host, target_user, target_password = target_match.groups()
-    target_port = int(value_after_colon(lines[9]))
+    if not primary:
+        raise ValueError("unable to parse primary NPU host line")
+    target_host, target_user, target_password = primary.groups()
+    target_port = int(re.search(r"主机器[\s\S]*?端口\s*[:：]\s*(\d+)", text).group(1))
 
-    shared = value_after_colon(lines[13]).rstrip()
-    branch_match = re.search(r"([A-Za-z0-9._/-]+)分支", lines[14])
+    target_octets = target_host.split(".")
+    if len(target_octets) != 4 or target_octets[-1] != REQUIRED_TARGET_LAST_OCTET:
+        raise ValueError(
+            "remote target guard rejected 机器IP.md: required target suffix is 42"
+        )
+
+    shared = re.search(r"共同的地址\s*[:：]\s*(\S+)", text).group(1).rstrip()
+    branch_match = re.search(r"([A-Za-z0-9._/-]+)分支", text)
     if not branch_match:
         raise ValueError("unable to parse target branch")
     branch = branch_match.group(1)
@@ -81,6 +89,17 @@ def connect(host: str, port: int, user: str, password: str, sock=None):
         banner_timeout=20,
         auth_timeout=20,
     )
+    if host.split(".")[-1] == REQUIRED_TARGET_LAST_OCTET:
+        _, stdout, stderr = client.exec_command("hostname", timeout=20)
+        actual = stdout.read().decode("utf-8", errors="replace").strip()
+        error = stderr.read().decode("utf-8", errors="replace").strip()
+        status = stdout.channel.recv_exit_status()
+        if status != 0 or actual != REQUIRED_TARGET_HOSTNAME:
+            client.close()
+            detail = f" status={status}" if status != 0 else ""
+            if error:
+                detail += " hostname_query_failed"
+            raise ValueError(f"remote target hostname guard rejected connection{detail}")
     return client
 
 

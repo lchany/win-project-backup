@@ -1,0 +1,17 @@
+diff --git a/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py b/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
+index 05f58f3..5340180 100644
+--- a/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
++++ b/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
+@@ -3142,11 +3142,11 @@ data_train_lanenew_configs = [
+ 
+ ####################### road& occ finetune 用到的数据 end ########################
+ data = dict(
+     samples_per_gpu=batch_size,
+     #随机性固定
+-    workers_per_gpu=0,
++    workers_per_gpu=2,
+ 
+     train_loader=dict(pin_memory=True),
+     #随机性固定
+     #随机性固定
+     #train_loader=dict(pin_memory=True, prefetch_factor=3),
