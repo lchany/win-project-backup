@@ -195,10 +195,60 @@ STEP-269 前 8 个布局用例（npu0、warmup=0、独立进程）全部 `ok=Tru
 - 结果：3/3 跑满，Q/R 全有限，无 NaN/Inf，无 507015；三卡 `recon_absmax` 一致约 `1.954e-14`。
 - 结论：在“8 卡同时可见 + current device 正确绑定 + 高频重复调用”这个更接近训练态的受控子场景里，历史 BAD192 仍**不能**单靠 QR 重放复现 NaN。现阶段更像是训练主链路中的额外上下文因素参与了触发，例如 QR 前后的 stream/context、张量生命周期、调用位置或与其它算子交错的状态。
 
+## STEP-334：QR Call Stack（2026-08-20）
+
+- `operator_details` 有 Call Stack、**无 Step Id**（窗口=iter10–16）。
+- LinalgQr 仅两条 Python 路径：`_qr_finish←_stale_q_submit`（多数）与 `get_orthogonal_matrix_QR` 同步 fallback（少数但 Device Self ~137s）；**无 install 栈**。
+- 与 332/333 一致：显式 install sync 不是触发点；iter14 kernel QR 是侧流工作在时间轴上的兑现。
+
+## STEP-332：install query 实测（2026-08-20）
+
+- rank0：step 4/14/24 全部 `query_true`，`sync_ms=0`；iter14/24 仍 ~143s。
+- per-factor event 优化无效；331 的「install synchronize 阻塞」推断被 332 修正。
+- 实验资产清单见 `操作步骤.md` STEP-333 归档节。
+
+## STEP-331 / STEP-330
+
+- 331：iter14 QR kernel 159.6s（profile）；原始 profile 已删，摘要保留在 `操作步骤.md`。
+- 330：k=0/k=4 同相位 iter4/14/24 长尾。
+
 ## Standing Performance Facts
 - 永久基线：`63861df 【loss对齐】随机性移除`。
 - 固定环境内多数单一严格等价边界已筛完或拒绝；1:1 吞吐仍未达到。
 - SOAP CPU QR / host 空洞历史上是第一性能瓶颈；社区 QR 目前被 NaN/精度合同挡住，不能直接当性能解。
+
+## STEP-330：SOAP_STALE_Q_K=0 vs 4 A/B（2026-08-20）
+
+k=0 与 k=4 均在后 8 卡正确运行（`ASCEND_RT_VISIBLE_DEVICES=8..15`）。
+
+| iter | k=0 | k=4 |
+|------|-----|-----|
+| 4 | 166.7s | 162.9s |
+| 10 | 4.4s | 4.5s |
+| **14** | **163.7s** | **140.8s** |
+| 20 | 4.4s | 4.4s |
+| **24** | **163.1s** | **140.5s** |
+| 总计 | 758.7s | 625.2s |
+
+**关键结论**：k=0 同样在 iter14/24 爆炸（163s），与 k=4 同相位。"仅 stale-Q install 导致 14/24"**被证伪**——但长尾仍是 QR 相关（见 STEP-331）。
+
+## STEP-331：iter10 vs iter14 原位 profile 根因定位（2026-08-20）
+
+后 8 卡、`SOAP_STALE_Q_K=4`、rank0 wait8/warmup1/active7，kernel_details.csv 原位分析：
+
+| 训练 iter | 墙时（profiler step_id） | `aclnnLinalgQr_QrAiCPU_Qr` | 占 kernel 比 |
+|-----------|--------------------------|----------------------------|-------------|
+| **10** | ~1.79s（step_id 9） | **0 ms**（无 QR kernel） | ~0% |
+| 11–13 | ~1.86s | 0 ms | ~0% |
+| **14** | **161.5s**（step_id 13） | **379 次，159.6s** | **98.8%** |
+| 15 | ~3.5s（残留） | 172 次，1.6s（install 尾迹） | 46% |
+
+**根因已用 trace 钉死（k=4 生产路径）**：
+- Iter10 `_stale_q_submit` → 侧流 enqueue QR，**默认流几乎无 QR 墙时**（0 ms）
+- Iter11–13 侧流后台跑 QR，主路径正常
+- Iter14 `_stale_q_install_if_due` → `event.synchronize()` → 379 次 `aclnnLinalgQr_QrAiCPU_Qr` **一次性串行兑现 ≈160s**
+
+STEP-330 k=0 的 iter14/24 长尾仍是 QR，但原因不同（无 stale-Q 时走同步路径 `get_orthogonal_matrix_QR`）。
 
 ## Technical Decisions
 | Decision | Rationale |

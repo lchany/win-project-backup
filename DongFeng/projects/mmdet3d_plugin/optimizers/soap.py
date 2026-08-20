@@ -1,4 +1,6 @@
+import json
 import os
+import time
 import torch
 import torch.nn as nn
 from torch.optim import Optimizer
@@ -335,12 +337,18 @@ class SOAP(Optimizer):
                      
         if state['Q'] is None:
             state['Q'] = self.get_identity_basis(state['GG'])
-            state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)
-        if state['step'] > 0 and state['step'] % state['precondition_frequency'] == 0:
+            if self._stale_q_eligible(state, merge_dims):
+                # Async path: submit QR on the side stream; Q stays as the
+                # identity basis until the first install step (iter k).
+                # This avoids the ~208 s synchronous AICPU stall at iter 4.
+                self._stale_q_submit(state, max_precond_dim, merge_dims)
+            else:
+                state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)
+        elif state['step'] > 0 and state['step'] % state['precondition_frequency'] == 0:
             if self._stale_q_eligible(state, merge_dims):
                 self._stale_q_submit(state, max_precond_dim, merge_dims)
             else:
-                state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)           
+                state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)
 
     def project_back(self, grad, state, merge_dims=False, max_precond_dim=10000):
         """
@@ -519,7 +527,13 @@ class SOAP(Optimizer):
         return plan
 
     def _qr_finish(self, plan):
-        """The AICPU-bound half: one linalg.qr per planned factor."""
+        """The AICPU-bound half: one linalg.qr per planned factor.
+
+        Each factor gets its own NPU Event so _stale_q_install_if_due can
+        query per-factor readiness without a single global synchronize() that
+        forces 379 QR kernels to drain in series on the host side.
+        """
+        stream = torch.npu.current_stream()
         result = []
         for entry in plan:
             if entry is None:
@@ -528,11 +542,51 @@ class SOAP(Optimizer):
             Q, _ = torch.linalg.qr(entry["power_iter"])
             if Q.dtype != entry["original_dtype"]:
                 Q = Q.to(entry["original_dtype"])
-            result.append(Q)
+            # One event per factor: recorded immediately after the QR kernel is
+            # submitted to the stream.  The install step can query each event
+            # independently and skip waiting for already-completed ones.
+            ev = torch.npu.Event()
+            ev.record(stream)
+            result.append({"Q": Q, "event": ev})
         return result
 
+    def _install_diag_enabled(self):
+        return os.environ.get("SOAP_INSTALL_DIAG", "0") == "1"
+
+    def _install_diag_log(self, record):
+        if not self._install_diag_enabled():
+            return
+        rank = 0
+        try:
+            import torch.distributed as dist
+            if dist.is_initialized():
+                rank = dist.get_rank()
+        except Exception:
+            pass
+        base = os.environ.get("SOAP_INSTALL_DIAG_LOG")
+        if not base:
+            return
+        if base.endswith(".jsonl"):
+            path = base[:-6] + f"_rank{rank}.jsonl"
+        else:
+            path = f"{base}_rank{rank}.jsonl"
+        record = dict(record)
+        record["rank"] = rank
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, sort_keys=True) + "\n")
+
     def _qr_install(self, state, plan, qlist, max_precond_dim=10000, merge_dims=False):
-        """Atomically apply the planned exp_avg_sq permutation and the new Q."""
+        """Atomically apply the planned exp_avg_sq permutation and the new Q.
+
+        qlist entries are either plain tensors (legacy synchronous path) or
+        dicts {"Q": tensor, "event": Event} produced by the per-factor async
+        path.  The event is queried first; only those still in-flight incur an
+        actual host wait.  Most events will already be signalled because k≥1
+        steps have elapsed since submit, so query() typically returns True
+        immediately for all 559 factors and the host never blocks.
+        """
+        current = torch.npu.current_stream()
         orig_shape = state['exp_avg_sq'].shape
         if self._data_format == 'channels_last' and len(orig_shape) == 4:
             permuted_shape = state['exp_avg_sq'].permute(0, 3, 1, 2).shape
@@ -542,12 +596,43 @@ class SOAP(Optimizer):
             exp_avg_sq = state['exp_avg_sq']
 
         final = []
-        for entry, Q in zip(plan, qlist):
+        n_ready = 0
+        n_wait = 0
+        sync_ms = 0.0
+        t0 = time.perf_counter()
+        for entry, q_item in zip(plan, qlist):
             if entry is None:
                 final.append([])
                 continue
+            # Unwrap per-factor async dict or plain tensor (sync / first-init path).
+            if isinstance(q_item, dict):
+                ev = q_item["event"]
+                if ev.query():
+                    n_ready += 1
+                else:
+                    n_wait += 1
+                    ts = time.perf_counter()
+                    ev.synchronize()
+                    sync_ms += (time.perf_counter() - ts) * 1000.0
+                Q = q_item["Q"]
+                Q.record_stream(current)
+            else:
+                Q = q_item
+                if torch.is_tensor(Q):
+                    Q.record_stream(current)
             exp_avg_sq = exp_avg_sq.index_select(entry["ind"], entry["sort_idx"])
             final.append(Q)
+        install_ms = (time.perf_counter() - t0) * 1000.0
+        if self._install_diag_enabled() and (n_ready + n_wait) > 0:
+            self._install_diag_log({
+                "event": "qr_install",
+                "step": int(state.get("step", -1)),
+                "n_factors": n_ready + n_wait,
+                "n_query_true": n_ready,
+                "n_query_false": n_wait,
+                "sync_ms": round(sync_ms, 3),
+                "install_ms": round(install_ms, 3),
+            })
 
         if merge_dims:
             if self._data_format == 'channels_last' and len(orig_shape) == 4:
@@ -566,6 +651,10 @@ class SOAP(Optimizer):
         stream = self._stale_q_side_stream()
         stream.wait_stream(torch.npu.current_stream())
         with torch.npu.stream(stream):
+            # _qr_finish now returns per-factor {"Q", "event"} dicts so that
+            # _qr_install can query each factor independently at install time
+            # instead of issuing one global synchronize() that serialises the
+            # host wait for all 559 AICPU QR completions at once.
             qlist = self._qr_finish(plan)
         for entry in plan:
             if entry is not None:
@@ -574,12 +663,11 @@ class SOAP(Optimizer):
                 # instead of being held for k steps.
                 entry["power_iter"].record_stream(stream)
                 entry["power_iter"] = None
-        event = torch.npu.Event()
-        event.record(stream)
         state["_stale_q_pending"] = {
             "plan": plan,
             "qlist": qlist,
-            "event": event,
+            # No single global event here; per-factor events live in each
+            # qlist[i]["event"] and are queried lazily in _qr_install.
             "target_step": int(state["step"]) + self._stale_q_k(),
             "max_precond_dim": max_precond_dim,
             "merge_dims": merge_dims,
@@ -591,16 +679,19 @@ class SOAP(Optimizer):
             return
         if not force and int(state["step"]) < int(pending["target_step"]):
             return
-        pending["event"].synchronize()
-        current = torch.npu.current_stream()
-        for value in pending["qlist"]:
-            if torch.is_tensor(value):
-                # Allocated on the side stream, consumed here on the default one.
-                value.record_stream(current)
+        t0 = time.perf_counter()
         self._qr_install(
             state, pending["plan"], pending["qlist"],
             pending["max_precond_dim"], pending["merge_dims"],
         )
+        wall_ms = (time.perf_counter() - t0) * 1000.0
+        if self._install_diag_enabled():
+            self._install_diag_log({
+                "event": "stale_q_install_if_due",
+                "step": int(state.get("step", -1)),
+                "target_step": int(pending["target_step"]),
+                "wall_ms": round(wall_ms, 3),
+            })
         state.pop("_stale_q_pending", None)
 
     def state_dict(self):

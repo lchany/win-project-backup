@@ -125,6 +125,20 @@
 - Git LFS 3.7.1 已在仓库级启用，两个超限文件均生成 134 字节 LFS 指针；强制暂存后共有 1746 个跟踪路径、0 个未跟踪路径、0 个未暂存路径，暂存树中不存在达到 100 MiB 的普通 Git blob。
 - 完整原样归档提交 `c012089` 已推送到 `origin/main`；两个 LFS 对象合计约 1.2 GB 均上传完成。远端与本地 SHA 完全一致，`git lfs push --dry-run origin main` 无待上传对象。
 
+## Session: 2026-08-20 STEP-332 install query 实测
+
+- 后 8 卡 30 步实测完成（`SOAP_STALE_Q_K=4`，带 `SOAP_INSTALL_DIAG` 埋点）。
+- rank0 在 step 4/14/24 三次 install：共 1629 个因子，`query_true=100%`，`query_false=0`，`sync_ms=0`。
+- iter4/14/24 仍 ~143s，per-factor event 优化无效。
+- 结论：先前「install 时 QR 未完成需 synchronize」为错误推断，已被实测推翻。
+
+## Session: 2026-08-20 Iter4/14/24 长尾定位与 soap.py 优化
+
+- STEP-330：后 8 卡 `SOAP_STALE_Q_K=0 vs 4` 30 步 A/B 完成。k=0 iter14/24 仍 ~163s；证伪「仅 k=4 install 导致」假设。
+- STEP-331：后 8 卡 rank0 profile（wait8/warmup1/active7），iter10–16 kernel_details 原位分析完成。**根因已用 trace 钉死**：iter14 内 `aclnnLinalgQr_QrAiCPU_Qr` 379 次串行，共 159.6s，占 kernel 总时 98.8%；iter10 同 profiler 窗口内 QR=0 ms。
+- 原始 profile 文件已按规则删除（0 个文件验证通过）。
+- 当前任务：针对 iter14/24 install 步同步阻塞，直接在 `soap.py` 设计优化方案。
+
 ## Session: 2026-08-20 推送审计后新增内容
 
 - 只读审计确认既有 `main` 与远端一致、LFS 无待上传对象，但推送后新增 21 个未跟踪工具/缓存文件（合计 77,774 字节）及 `操作步骤.md` 的 47 行实质改动。
