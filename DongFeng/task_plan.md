@@ -70,8 +70,8 @@
 - [x] 只读核对本地/远端 `main`、工作区、分支与 LFS 状态
 - [x] 用户明确授权全部新增与改动直接推送
 - [x] 按已确认路径暂存并验证提交范围
-- [ ] 提交、推送并重复核验直到工作区干净
-- **Status:** in_progress
+- [x] 提交、推送并重复核验直到工作区无实质差异
+- **Status:** complete
 
 ## Acceptance Criteria
 - 逐步 logged `loss` 相对 GPU `|Δ| ≤ 2%`。
