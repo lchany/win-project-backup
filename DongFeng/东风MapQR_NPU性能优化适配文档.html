@@ -198,7 +198,7 @@ pre.code {
     <li>同一文件若被多次提交修改，分项中 Source 均为<strong>最终合并后的整文件</strong>；Diff 仍为该次提交增量。</li>
   </ul>
 </section>
-<section class="block" id="sec-list"><h2><span class="h2-mark"></span>2. 优化清单</h2><table><thead><tr><th>提交</th><th>主题</th><th>完整源码文件</th></tr></thead><tbody><tr><td><code>fb979b2</code></td><td>SOAP 预条件器 NPU 亲和优化</td><td>projects/mmdet3d_plugin/optimizers/soap.py<br/>projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py</td></tr><tr><td><code>5a37d04</code></td><td>训练输入哈希调试移除</td><td>projects/mmdet3d_plugin/models/detectors/spetr3d.py</td></tr><tr><td><code>14d4f23</code></td><td>SOAP 分块 Foreach 调度</td><td>projects/mmdet3d_plugin/optimizers/soap.py</td></tr><tr><td><code>b36821e</code></td><td>GeometricLoss 有限值索引消除</td><td>projects/mmdet3d_plugin/models/losses/geo_loss.py</td></tr><tr><td><code>bf9ed6e</code></td><td>TextLogger 显存统计同步降频</td><td>mmcv/runner/hooks/logger/text.py<br/>projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py</td></tr><tr><td><code>f922c38</code></td><td>MSDA 切换 DrivingSDK 融合实现</td><td>projects/mmdet3d_plugin/models/utils/multi_scale_deformable_attn_function.py</td></tr><tr><td><code>2846401</code></td><td>SOAP 周期 QR 异步流水（stale-Q，k=4）</td><td>projects/mmdet3d_plugin/optimizers/soap.py</td></tr><tr><td><code>2a2aa0f</code></td><td>DataContainer 补齐 pin_memory</td><td>mmcv/parallel/data_container.py</td></tr><tr><td><code>fa95a2a</code></td><td>训练入口默认 expandable_segments</td><td>tools/ddp_train.sh</td></tr><tr><td><code>669a138</code></td><td>配置最终版本修改（不涉及性能修改）</td><td>projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py<br/>tools/ddp_train.sh<br/>tools/train_spetr.py</td></tr></tbody></table></section><section class="block" id="sec-toc"><h2><span class="h2-mark"></span>3. 目录</h2><ol class="toc"><li><a href='#item-fb979b2'>1. 1. 1. SOAP 预条件器 NPU 亲和优化（fb979b2）</a></li><li><a href='#item-5a37d04'>2. 3. 3. 训练输入哈希调试移除（5a37d04）</a></li><li><a href='#item-14d4f23'>3. 4. 4. SOAP 分块 Foreach 调度（14d4f23）</a></li><li><a href='#item-b36821e'>4. 5. 5. GeometricLoss 有限值索引消除（b36821e）</a></li><li><a href='#item-bf9ed6e'>5. 6. 6. TextLogger 显存统计同步降频（bf9ed6e）</a></li><li><a href='#item-f922c38'>6. 7. 7. MSDA 切换 DrivingSDK 融合实现（f922c38）</a></li><li><a href='#item-2846401'>7. 8. 8. SOAP 周期 QR 异步流水（stale-Q，k=4）（2846401）</a></li><li><a href='#item-2a2aa0f'>8. 9. 9. DataContainer 补齐 pin_memory（2a2aa0f）</a></li><li><a href='#item-fa95a2a'>9. 训练入口默认 expandable_segments（fa95a2a）</a></li><li><a href='#item-669a138'>10. 配置最终版本修改（669a138）</a></li><li><a href='#soap-final'>附录：全部改动文件终稿索引</a></li></ol></section><section class="block" id="sec-items"><h2><span class="h2-mark"></span>4. 分项适配说明</h2><div class="card" id="item-fb979b2"><h3><span class="sha-chip">fb979b2</span>SOAP 预条件器 NPU 亲和优化</h3><p class="field"><span class="label">适配对象</span>将 SOAP 预条件器路径从偏 CPU / NumPy 亲和实现，调整为在 NPU 上可高效执行的张量路径，并配合训练配置启用相关开关。</p><p class="field"><span class="label">原理</span>SOAP 周期性更新预条件矩阵（含 QR 等线性代数），若大量落在 Host/CPU，会在固定 frequency 的周期步制造秒级空洞。把可亲和部分留在 NPU，减少 D2H/H2D 与 Host 算力占用。</p><p class="field"><span class="label">为何可优化</span>Profiler 显示周期步长尾与 SOAP precondition 强相关；设备侧算子路径可缩短 Host 空闲等待，直接抬升端到端 step time。</p><p class="field"><span class="label">做了什么</span>改写 soap.py 中预条件器相关实现，减少 CPU fallback；配置侧补齐 SOAP 相关启用项。</p><p class="field"><span class="label">涉及文件</span>projects/mmdet3d_plugin/optimizers/soap.py；projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py</p><div class="file-stack"><details class="code-fold">
+<section class="block" id="sec-list"><h2><span class="h2-mark"></span>2. 优化清单</h2><table><thead><tr><th>提交</th><th>主题</th><th>完整源码文件</th></tr></thead><tbody><tr><td><code>fb979b2</code></td><td>SOAP 预条件器 NPU 亲和优化</td><td>projects/mmdet3d_plugin/optimizers/soap.py<br/>projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py</td></tr><tr><td><code>5a37d04</code></td><td>训练输入哈希调试移除</td><td>projects/mmdet3d_plugin/models/detectors/spetr3d.py</td></tr><tr><td><code>14d4f23</code></td><td>SOAP 分块 Foreach 调度</td><td>projects/mmdet3d_plugin/optimizers/soap.py</td></tr><tr><td><code>b36821e</code></td><td>GeometricLoss 有限值索引消除</td><td>projects/mmdet3d_plugin/models/losses/geo_loss.py</td></tr><tr><td><code>bf9ed6e</code></td><td>TextLogger 显存统计同步降频</td><td>mmcv/runner/hooks/logger/text.py<br/>projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py</td></tr><tr><td><code>f922c38</code></td><td>MSDA 切换 DrivingSDK 融合实现</td><td>projects/mmdet3d_plugin/models/utils/multi_scale_deformable_attn_function.py</td></tr><tr><td><code>2846401</code></td><td>SOAP 周期 QR 异步流水（stale-Q，k=4）</td><td>projects/mmdet3d_plugin/optimizers/soap.py</td></tr><tr><td><code>2a2aa0f</code></td><td>DataContainer 补齐 pin_memory</td><td>mmcv/parallel/data_container.py</td></tr><tr><td><code>fa95a2a</code></td><td>训练入口默认 expandable_segments</td><td>tools/ddp_train.sh</td></tr><tr><td><code>669a138</code></td><td>配置最终版本修改（不涉及性能修改）</td><td>projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py<br/>tools/ddp_train.sh<br/>tools/train_spetr.py</td></tr><tr><td><code>10f897d</code></td><td>mx QR 192×192 绕开 QrV2（暂撤 stale-Q）</td><td>mx_driving_cloud/ops/linalg.py（已撤回，见 5899e94）<br/>projects/mmdet3d_plugin/optimizers/soap.py</td></tr><tr><td><code>5899e94</code></td><td>撤回误入库 mx_driving_cloud 包</td><td>mx_driving_cloud/__init__.py<br/>mx_driving_cloud/ops/__init__.py<br/>mx_driving_cloud/ops/linalg.py</td></tr><tr><td><code>9565044</code></td><td>SOAP 使用 mx_driving_cloud.linalg.qr</td><td>projects/mmdet3d_plugin/optimizers/soap.py</td></tr><tr><td><code>27b1d6d</code></td><td>去除随机性固定（对齐 GPU 训练语义）</td><td>mmcv/runner/hooks/optimizer.py<br/>projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py<br/>projects/mmdet3d_plugin/core/hook/__init__.py<br/>projects/mmdet3d_plugin/datasets/internal_dataset_track_stream.py<br/>projects/mmdet3d_plugin/datasets/pipelines/vectorize_local_map.py<br/>projects/mmdet3d_plugin/models/detectors/spetr3d.py</td></tr><tr><td><code>3a1d763</code></td><td>SOAP QR 修复：torch.linalg.qr 消除 Iter6 NaN</td><td>projects/mmdet3d_plugin/optimizers/soap.py</td></tr></tbody></table></section><section class="block" id="sec-toc"><h2><span class="h2-mark"></span>3. 目录</h2><ol class="toc"><li><a href='#item-fb979b2'>1. 1. 1. SOAP 预条件器 NPU 亲和优化（fb979b2）</a></li><li><a href='#item-5a37d04'>2. 3. 3. 训练输入哈希调试移除（5a37d04）</a></li><li><a href='#item-14d4f23'>3. 4. 4. SOAP 分块 Foreach 调度（14d4f23）</a></li><li><a href='#item-b36821e'>4. 5. 5. GeometricLoss 有限值索引消除（b36821e）</a></li><li><a href='#item-bf9ed6e'>5. 6. 6. TextLogger 显存统计同步降频（bf9ed6e）</a></li><li><a href='#item-f922c38'>6. 7. 7. MSDA 切换 DrivingSDK 融合实现（f922c38）</a></li><li><a href='#item-2846401'>7. 8. 8. SOAP 周期 QR 异步流水（stale-Q，k=4）（2846401）</a></li><li><a href='#item-2a2aa0f'>8. 9. 9. DataContainer 补齐 pin_memory（2a2aa0f）</a></li><li><a href='#item-fa95a2a'>9. 训练入口默认 expandable_segments（fa95a2a）</a></li><li><a href='#item-669a138'>10. 配置最终版本修改（669a138）</a></li><li><a href='#item-10f897d'>11. mx QR 192×192 绕开 QrV2（暂撤 stale-Q）（10f897d）</a></li><li><a href='#item-5899e94'>12. 撤回误入库 mx_driving_cloud 包（5899e94）</a></li><li><a href='#item-9565044'>13. SOAP 使用 mx_driving_cloud.linalg.qr（9565044）</a></li><li><a href='#item-27b1d6d'>14. 去除随机性固定（对齐 GPU 训练语义）（27b1d6d）</a></li><li><a href='#item-3a1d763'>15. SOAP QR 修复：torch.linalg.qr 消除 Iter6 NaN（3a1d763）</a></li><li><a href='#soap-final'>附录：全部改动文件终稿索引</a></li></ol></section><section class="block" id="sec-items"><h2><span class="h2-mark"></span>4. 分项适配说明</h2><div class="card" id="item-fb979b2"><h3><span class="sha-chip">fb979b2</span>SOAP 预条件器 NPU 亲和优化</h3><p class="field"><span class="label">适配对象</span>将 SOAP 预条件器路径从偏 CPU / NumPy 亲和实现，调整为在 NPU 上可高效执行的张量路径，并配合训练配置启用相关开关。</p><p class="field"><span class="label">原理</span>SOAP 周期性更新预条件矩阵（含 QR 等线性代数），若大量落在 Host/CPU，会在固定 frequency 的周期步制造秒级空洞。把可亲和部分留在 NPU，减少 D2H/H2D 与 Host 算力占用。</p><p class="field"><span class="label">为何可优化</span>Profiler 显示周期步长尾与 SOAP precondition 强相关；设备侧算子路径可缩短 Host 空闲等待，直接抬升端到端 step time。</p><p class="field"><span class="label">做了什么</span>改写 soap.py 中预条件器相关实现，减少 CPU fallback；配置侧补齐 SOAP 相关启用项。</p><p class="field"><span class="label">涉及文件</span>projects/mmdet3d_plugin/optimizers/soap.py；projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py</p><div class="file-stack"><details class="code-fold">
   <summary>Diff — fb979b2 SOAP 预条件器 NPU 亲和优化</summary>
   <pre class="code"><code>diff --git a/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py b/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
 index 1306a56..05f58f3 100644
@@ -18174,7 +18174,3536 @@ if __name__ == '__main__':
     main()
 </code></pre>
 </details>
-</div></div></section><section class="block" id="soap-final"><h2><span class="h2-mark"></span>5. 附录：全部改动文件终稿索引</h2><p class="note">以下为本次性能适配涉及的全部唯一文件，再次按整文件提供可展开源码（与分项中 Source 内容一致，便于按文件检索）。</p><details class="code-fold">
+</div></div><div class="card" id="item-10f897d"><h3><span class="sha-chip">10f897d</span>mx QR 192×192 绕开 QrV2（暂撤 stale-Q）</h3><p class="field"><span class="label">适配对象</span>在 SOAP 中接入 mx_driving_cloud.linalg.qr，并临时入库本地 linalg 包装（192×192 走 torch QR 绕开 QrV2）；同期撤掉 stale-Q 异步路径以便单变量验证 mx QR。</p><p class="field"><span class="label">原理</span>QrV2 在部分设备/shape 上存在末 tile 与设备绑定缺陷；192×192 固定走 AICPU torch QR 可规避 BAD dump，其余 shape 仍走 mx 算子以追求 NPU 性能。</p><p class="field"><span class="label">为何可优化</span>Profiler 显示 SOAP 周期 QR 是最大瓶颈；mx QR 若稳定可用可显著缩短周期步。</p><p class="field"><span class="label">做了什么</span>新增 mx_driving_cloud/ops/linalg.py（48 行）；soap.py 改 mx QR 并移除 stale-Q 相关方法与周期分支。</p><p class="field"><span class="label">涉及文件</span>mx_driving_cloud/ops/linalg.py；projects/mmdet3d_plugin/optimizers/soap.py</p><div class="file-stack">
+<details class="code-fold">
+  <summary>Diff — 10f897d mx QR 192×192 绕开 QrV2（暂撤 stale-Q）</summary>
+  <pre class="code"><code>diff --git a/mx_driving_cloud/__init__.py b/mx_driving_cloud/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/mx_driving_cloud/ops/__init__.py b/mx_driving_cloud/ops/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/mx_driving_cloud/ops/linalg.py b/mx_driving_cloud/ops/linalg.py
+new file mode 100644
+index 0000000..5788c3a
+--- /dev/null
++++ b/mx_driving_cloud/ops/linalg.py
+@@ -0,0 +1,48 @@
++# Copyright (c) 2026 Huawei Technologies Co., Ltd.
++# NPU QR: 192x192 uses torch.linalg.qr; larger matrices use QrV2 when device path is healthy.
++
++import torch
++import torch.nn.functional as F
++from torch.autograd import Function
++
++import mx_driving_cloud._C
++
++BLOCK_TILING = 64
++QR_AICPU_THRESHOLD_SHAPE = 80
++QR_SOAP_FIXED_SHAPE = 192
++
++
++class QR(Function):
++    @staticmethod
++    def forward(ctx, A: torch.Tensor):
++        dim = A.shape
++        if len(dim) != 2:
++            raise ValueError(
++                f"Input tensor must be 2D, got {len(dim)}D shape {dim}")
++
++        if dim[0] &lt;= QR_AICPU_THRESHOLD_SHAPE or dim[1] &lt;= QR_AICPU_THRESHOLD_SHAPE:
++            return torch.linalg.qr(A)
++
++        if dim[0] == QR_SOAP_FIXED_SHAPE and dim[1] == QR_SOAP_FIXED_SHAPE:
++            return torch.linalg.qr(A)
++
++        lda = max(dim[0], dim[1])
++        if lda == 0:
++            return (A, A)
++        if dim[0] == 1:
++            return (torch.ones(1, 1, dtype=A.dtype, device=A.device), A)
++
++        pad = lda % BLOCK_TILING
++        pad = BLOCK_TILING - pad if pad else 0
++        lda_pad = lda + pad
++        A_pad = F.pad(
++            A,
++            (0, lda_pad - dim[1], 0, lda_pad - dim[0]),
++        ).contiguous()
++        Q, R = mx_driving_cloud._C.qr(A_pad)
++        Q = Q[: dim[0], : dim[0]]
++        R = R[: dim[0], : dim[1]]
++        return Q, torch.triu(R)
++
++
++qr = QR.apply
+diff --git a/projects/mmdet3d_plugin/optimizers/soap.py b/projects/mmdet3d_plugin/optimizers/soap.py
+index fbdc6b5..59bcd2d 100644
+--- a/projects/mmdet3d_plugin/optimizers/soap.py
++++ b/projects/mmdet3d_plugin/optimizers/soap.py
+@@ -1,200 +1,121 @@
+-import os
+-import torch
+-import torch.nn as nn
+-from torch.optim import Optimizer
+-from mmcv.runner.optimizer import OPTIMIZERS
+-from itertools import chain
+-
+-# Parts of the code are modifications of Pytorch's AdamW optimizer
+-# Parts of the code are modifications of code from https://github.com/jiaweizzhao/GaLore/blob/master/galore_torch/galore_projector.py
+-@OPTIMIZERS.register_module()
+-class SOAP(Optimizer):
+-    """
+-    Implements SOAP algorithm (https://arxiv.org/abs/2409.11321).
+-
+-    Parameters:
+-        params (`Iterable[nn.parameter.Parameter]`):
+-            Iterable of parameters to optimize or dictionaries defining parameter groups.
+-        lr (`float`, *optional*, defaults to 0.003):
+-            The learning rate to use.
+-        betas (`Tuple[float,float]`, *optional*, defaults to `(0.95, 0.95)`):
+-            Adam's betas parameters (b1, b2).
+-        shampoo_beta (`float`, *optional*, defaults to -1):
+-            If &gt;= 0, use this beta for the preconditioner (L and R in paper, state['GG'] below) moving average instead of betas[1].
+-        eps (`float`, *optional*, defaults to 1e-08):
+-            Adam's epsilon for numerical stability.
+-        weight_decay (`float`, *optional*, defaults to 0.01): weight decay coefficient.
+-        precondition_frequency (`int`, *optional*, defaults to 10):
+-            How often to update the preconditioner.
+-        max_precond_dim (`int`, *optional*, defaults to 10000):
+-            Maximum dimension of the preconditioner.
+-            Set to 10000, so that we exclude most common vocab sizes while including layers.
+-        merge_dims (`bool`, *optional*, defaults to `False`):
+-            Whether or not to merge dimensions of the preconditioner.
+-        precondition_1d (`bool`, *optional*, defaults to `False`):
+-            Whether or not to precondition 1D gradients.
+-        normalize_grads (`bool`, *optional*, defaults to `False`):
+-            Whether or not to normalize gradients per layer. 
+-            Helps at large precondition_frequency (~100 in our experiments), 
+-            but hurts performance at small precondition_frequency (~10 in our experiments).
+-        data_format (`str`, *optional*, defaults to `channels_first`):
+-            Data format of the input for convolutional layers.
+-            Should be "channels_last" for data_format of NHWC and "channels_first" for NCHW.
+-        correct_bias (`bool`, *optional*, defaults to `True`):
+-            Whether or not to use bias correction in Adam.
+-    """
+-
+-    def __init__(
+-        self,
+-        params,
+-        lr: float = 3e-3,
+-        betas=(0.9, 0.9),
+-        shampoo_beta: float= -1,
+-        eps: float = 1e-6,
+-        weight_decay: float = 0.01,
+-        precondition_frequency: int=10,
+-        max_precond_dim: int=10000, # 
+-        one_sided_dim_threshold: int | None = None,
+-        merge_dims: bool = False, # Merge dimensions till the product of the dimensions is less than or equal to max_precond_dim.
+-        precondition_1d: bool = False,
+-        normalize_grads: bool = False,
+-        data_format: str = "channels_first",
+-        correct_bias: bool = True,
+-    ):
+-        defaults = {
+-            "lr": lr,
+-            "betas": betas,
+-            "shampoo_beta": shampoo_beta,
+-            "eps": eps,
+-            "weight_decay": weight_decay,
+-            "precondition_frequency": precondition_frequency,
+-            "max_precond_dim": max_precond_dim,
+-            "one_sided_dim_threshold": one_sided_dim_threshold,
+-            "merge_dims": merge_dims,
+-            "precondition_1d": precondition_1d,
+-            "normalize_grads": normalize_grads,
+-            "correct_bias": correct_bias,
+-        }
+-        super().__init__(params, defaults)
+-        self._data_format = data_format
+-        
+-    def merge_dims(self, grad, max_precond_dim):
+-        """
+-        Merges dimensions of the gradient tensor till the product of the dimensions is less than or equal to max_precond_dim.
+-        """
+-        assert self._data_format in ["channels_first", "channels_last"]
+-        if self._data_format == "channels_last" and grad.dim() == 4:
+-            grad = grad.permute(0, 3, 1, 2)
+-        shape = grad.shape
+-        new_shape = []
+-        
+-        curr_shape = 1
+-        for sh in shape:
+-            temp_shape = curr_shape * sh
+-            if temp_shape &gt; max_precond_dim:
+-                if curr_shape &gt; 1:
+-                    new_shape.append(curr_shape)
+-                    curr_shape = sh
+-                else:
+-                    new_shape.append(sh)
+-                    curr_shape = 1
+-            else:
+-                curr_shape = temp_shape
+-        
+-        if curr_shape &gt; 1 or len(new_shape)==0:
+-            new_shape.append(curr_shape)
+-        
+-        new_grad = grad.reshape(new_shape)
+-        return new_grad     
+-    
+-    def _foreach_chunk_key(self, group, state, grad):
+-        """Return settings that must remain identical inside a chunk."""
+-        return (
+-            group["betas"], group["eps"], group["lr"],
+-            group["weight_decay"], group["correct_bias"],
+-            group["normalize_grads"], group["max_precond_dim"],
+-            group["merge_dims"], group["precondition_1d"],
+-            group["precondition_frequency"], state["step"],
+-            grad.device, grad.dtype,
+-        )
++import torch
++import torch.nn as nn
++from torch.optim import Optimizer
++from mmcv.runner.optimizer import OPTIMIZERS
++from itertools import chain
++import os
++import mx_driving_cloud
+ 
+-    def _step_foreach_chunk(self, chunk):
+-        """Update an ordered chunk without changing each tensor's math."""
+-        params = [item[0] for item in chunk]
+-        grads = [item[1] for item in chunk]
+-        states = [item[2] for item in chunk]
+-        group = chunk[0][3]
+-        beta1, beta2 = group["betas"]
+-        for state in states:
+-            self._stale_q_install_if_due(state)
+-        grad_projected = [
+-            self.project(grad, state, merge_dims=group["merge_dims"],
+-                         max_precond_dim=group["max_precond_dim"])
+-            for grad, state in zip(grads, states)
+-        ]
+-        exp_avg = [state["exp_avg"] for state in states]
+-        exp_avg_sq = [state["exp_avg_sq"] for state in states]
+-        for state in states:
+-            state["step"] += 1
+-        torch._foreach_mul_(exp_avg, beta1)
+-        torch._foreach_add_(exp_avg, grads, alpha=(1.0 - beta1))
+-        torch._foreach_mul_(exp_avg_sq, beta2)
+-        grad_projected_sq = torch._foreach_mul(grad_projected, grad_projected)
+-        torch._foreach_add_(exp_avg_sq, grad_projected_sq,
+-                            alpha=(1.0 - beta2))
+-        del grad_projected_sq, grad_projected
+-        denom = torch._foreach_sqrt(exp_avg_sq)
+-        torch._foreach_add_(denom, group["eps"])
+-        exp_avg_projected = [
+-            self.project(avg, state, merge_dims=group["merge_dims"],
+-                         max_precond_dim=group["max_precond_dim"])
+-            for avg, state in zip(exp_avg, states)
+-        ]
+-        preconditioned = torch._foreach_div(exp_avg_projected, denom)
+-        del exp_avg_projected, denom
+-        norm_grads = [
+-            self.project_back(value, state, merge_dims=group["merge_dims"],
+-                              max_precond_dim=group["max_precond_dim"])
+-            for value, state in zip(preconditioned, states)
+-        ]
+-        del preconditioned
+-        if group["normalize_grads"]:
+-            norm_grads = [
+-                grad / (1e-30 + torch.mean(grad ** 2) ** 0.5)
+-                for grad in norm_grads
+-            ]
+-        step_size = group["lr"]
+-        if group["correct_bias"]:
+-            step = states[0]["step"]
+-            bias_correction1 = 1.0 - beta1 ** step
+-            bias_correction2 = 1.0 - beta2 ** step
+-            step_size = step_size * (bias_correction2 ** .5) / bias_correction1
+-        torch._foreach_add_(params, norm_grads, alpha=-step_size)
+-        if group["weight_decay"] &gt; 0.0:
+-            torch._foreach_add_(params, params,
+-                                alpha=(-group["lr"] * group["weight_decay"]))
+-        for grad, state in zip(grads, states):
+-            self.update_preconditioner(
+-                grad, state, max_precond_dim=group["max_precond_dim"],
+-                merge_dims=group["merge_dims"],
+-                precondition_1d=group["precondition_1d"])
++# Parts of the code are modifications of Pytorch's AdamW optimizer
++# Parts of the code are modifications of code from https://github.com/jiaweizzhao/GaLore/blob/master/galore_torch/galore_projector.py
++@OPTIMIZERS.register_module()
++class SOAP(Optimizer):
++    """
++    Implements SOAP algorithm (https://arxiv.org/abs/2409.11321).
+ 
++    Parameters:
++        params (`Iterable[nn.parameter.Parameter]`):
++            Iterable of parameters to optimize or dictionaries defining parameter groups.
++        lr (`float`, *optional*, defaults to 0.003):
++            The learning rate to use.
++        betas (`Tuple[float,float]`, *optional*, defaults to `(0.95, 0.95)`):
++            Adam's betas parameters (b1, b2).
++        shampoo_beta (`float`, *optional*, defaults to -1):
++            If &gt;= 0, use this beta for the preconditioner (L and R in paper, state['GG'] below) moving average instead of betas[1].
++        eps (`float`, *optional*, defaults to 1e-08):
++            Adam's epsilon for numerical stability.
++        weight_decay (`float`, *optional*, defaults to 0.01): weight decay coefficient.
++        precondition_frequency (`int`, *optional*, defaults to 10):
++            How often to update the preconditioner.
++        max_precond_dim (`int`, *optional*, defaults to 10000):
++            Maximum dimension of the preconditioner.
++            Set to 10000, so that we exclude most common vocab sizes while including layers.
++        merge_dims (`bool`, *optional*, defaults to `False`):
++            Whether or not to merge dimensions of the preconditioner.
++        precondition_1d (`bool`, *optional*, defaults to `False`):
++            Whether or not to precondition 1D gradients.
++        normalize_grads (`bool`, *optional*, defaults to `False`):
++            Whether or not to normalize gradients per layer. 
++            Helps at large precondition_frequency (~100 in our experiments), 
++            but hurts performance at small precondition_frequency (~10 in our experiments).
++        data_format (`str`, *optional*, defaults to `channels_first`):
++            Data format of the input for convolutional layers.
++            Should be "channels_last" for data_format of NHWC and "channels_first" for NCHW.
++        correct_bias (`bool`, *optional*, defaults to `True`):
++            Whether or not to use bias correction in Adam.
++    """
++
++    def __init__(
++        self,
++        params,
++        lr: float = 3e-3,
++        betas=(0.9, 0.9),
++        shampoo_beta: float= -1,
++        eps: float = 1e-6,
++        weight_decay: float = 0.01,
++        precondition_frequency: int=10,
++        max_precond_dim: int=10000, # 
++        one_sided_dim_threshold=None,
++        merge_dims: bool = False, # Merge dimensions till the product of the dimensions is less than or equal to max_precond_dim.
++        precondition_1d: bool = False,
++        normalize_grads: bool = False,
++        data_format: str = "channels_first",
++        correct_bias: bool = True,
++    ):
++        defaults = {
++            "lr": lr,
++            "betas": betas,
++            "shampoo_beta": shampoo_beta,
++            "eps": eps,
++            "weight_decay": weight_decay,
++            "precondition_frequency": precondition_frequency,
++            "max_precond_dim": max_precond_dim,
++            "merge_dims": merge_dims,
++            "precondition_1d": precondition_1d,
++            "normalize_grads": normalize_grads,
++            "correct_bias": correct_bias,
++        }
++        super().__init__(params, defaults)
++        self._data_format = data_format
++        
++    def merge_dims(self, grad, max_precond_dim):
++        """
++        Merges dimensions of the gradient tensor till the product of the dimensions is less than or equal to max_precond_dim.
++        """
++        assert self._data_format in ["channels_first", "channels_last"]
++        if self._data_format == "channels_last" and grad.dim() == 4:
++            grad = grad.permute(0, 3, 1, 2)
++        shape = grad.shape
++        new_shape = []
++        
++        curr_shape = 1
++        for sh in shape:
++            temp_shape = curr_shape * sh
++            if temp_shape &gt; max_precond_dim:
++                if curr_shape &gt; 1:
++                    new_shape.append(curr_shape)
++                    curr_shape = sh
++                else:
++                    new_shape.append(sh)
++                    curr_shape = 1
++            else:
++                curr_shape = temp_shape
++        
++        if curr_shape &gt; 1 or len(new_shape)==0:
++            new_shape.append(curr_shape)
++        
++        new_grad = grad.reshape(new_shape)
++        return new_grad     
++    
+     @torch.no_grad()
+     def step(self):
+-        """Performs a single optimization step."""
+-        loss = None
+-        chunk = []
+-        chunk_key = None
+-        chunk_numel = 0
+-        chunk_numel_limit = 8_000_000
++        """
++        Performs a single optimization step.
+ 
+-        def flush_chunk():
+-            nonlocal chunk, chunk_key, chunk_numel
+-            if chunk:
+-                self._step_foreach_chunk(chunk)
+-                chunk = []
+-                chunk_key = None
+-                chunk_numel = 0
++        Arguments:
++            closure (`Callable`, *optional*): A closure that reevaluates the model and returns the loss.
++        """
++        loss = None
+ 
+         for group in self.param_groups:
+             for p in group["params"]:
+@@ -202,409 +123,378 @@ class SOAP(Optimizer):
+                     continue
+                 p.grad.nan_to_num_()
+                 grad = p.grad
++
+                 state = self.state[p]
++                
+                 if "step" not in state:
+-                    state["step"] = 0
++                    state["step"] = 0 
++                    
++                # State initialization
+                 if "exp_avg" not in state:
++                    # Exponential moving average of gradient values
+                     state["exp_avg"] = torch.zeros_like(grad)
++                    # Exponential moving average of squared gradient values
+                     state["exp_avg_sq"] = torch.zeros_like(grad)
+-                if "Q" not in state:
+-                    flush_chunk()
++
++                if 'Q' not in state:
+                     self.init_preconditioner(
+-                        grad, state,
+-                        precondition_frequency=group["precondition_frequency"],
+-                        precondition_1d=group["precondition_1d"],
+-                        shampoo_beta=(group["shampoo_beta"]
+-                                      if group["shampoo_beta"] &gt;= 0
+-                                      else group["betas"][1]),
+-                        max_precond_dim=group["max_precond_dim"],
+-                        one_sided_dim_threshold=group["one_sided_dim_threshold"],
+-                        merge_dims=group["merge_dims"])
+-                    self.update_preconditioner(
+-                        grad, state,
+-                        max_precond_dim=group["max_precond_dim"],
++                        grad,
++                        state,
++                        precondition_frequency=group['precondition_frequency'],
++                        precondition_1d=group['precondition_1d'],
++                        shampoo_beta=(group['shampoo_beta'] if group['shampoo_beta'] &gt;= 0 else group["betas"][1]),
++                        max_precond_dim=group['max_precond_dim'],
+                         merge_dims=group["merge_dims"],
+-                        precondition_1d=group["precondition_1d"])
+-                    continue
+-                key = self._foreach_chunk_key(group, state, grad)
+-                if chunk and (key != chunk_key or
+-                              chunk_numel + grad.numel() &gt; chunk_numel_limit):
+-                    flush_chunk()
+-                if not chunk:
+-                    chunk_key = key
+-                chunk.append((p, grad, state, group))
+-                chunk_numel += grad.numel()
+-                if chunk_numel &gt;= chunk_numel_limit:
+-                    flush_chunk()
+-        flush_chunk()
++                    )
++                    self.update_preconditioner(grad, state,
++                                               max_precond_dim=group['max_precond_dim'],
++                                               merge_dims=group["merge_dims"],
++                                               precondition_1d=group["precondition_1d"])
++                    continue # first step is skipped so that we never use the current gradients in the projection.
++                
++                # Projecting gradients to the eigenbases of Shampoo's preconditioner 
++                # i.e. projecting to the eigenbases of matrices in state['GG']
++                grad_projected = self.project(grad, state, merge_dims=group["merge_dims"], 
++                                              max_precond_dim=group['max_precond_dim'])
++
++                exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
++                beta1, beta2 = group["betas"]
++
++                state["step"] += 1
++
++                # Decay the first and second moment running average coefficient
++                # In-place operations to update the averages at the same time
++                exp_avg.mul_(beta1).add_(grad, alpha=(1.0 - beta1))
++                exp_avg_sq.mul_(beta2).add_(grad_projected.square(), alpha=(1.0 - beta2))
++
++                denom = exp_avg_sq.sqrt().add_(group["eps"])
++                
++                # Projecting the exponential moving average of gradients to the eigenbases of Shampoo's preconditioner 
++                # i.e. projecting to the eigenbases of matrices in state['GG']
++                exp_avg_projected = self.project(exp_avg, state, merge_dims=group["merge_dims"],
++                                                 max_precond_dim=group['max_precond_dim'])
++                
++                step_size = group["lr"]
++                if group["correct_bias"]:
++                    bias_correction1 = 1.0 - beta1 ** (state["step"])
++                    bias_correction2 = 1.0 - beta2 ** (state["step"])
++                    step_size = step_size * (bias_correction2 ** .5) / bias_correction1
++
++                # Projecting back the preconditioned (by Adam) exponential moving average of gradients
++                # to the original space
++                norm_grad = self.project_back(exp_avg_projected / denom, state, merge_dims=group["merge_dims"],
++                                                 max_precond_dim=group['max_precond_dim'])
++
++                if group["normalize_grads"]:
++                    norm_grad = norm_grad / (1e-30+torch.mean(norm_grad**2)**0.5)
++                
++                p.add_(norm_grad, alpha=-step_size)
++                
++
++                # From AdamW code: Just adding the square of the weights to the loss function is *not*
++                # the correct way of using L2 regularization/weight decay with Adam,
++                # since that will interact with the m and v parameters in strange ways.
++                #
++                # Instead we want to decay the weights in a manner that doesn't interact
++                # with the m/v parameters. This is equivalent to adding the square
++                # of the weights to the loss with plain (non-momentum) SGD.
++                # Add weight decay at the end (fixed version)
++                if group["weight_decay"] &gt; 0.0:
++                    p.add_(p, alpha=(-group["lr"] * group["weight_decay"]))
++                    
++                # Update is done after the gradient step to avoid using current gradients in the projection.
++                self.update_preconditioner(grad, state, 
++                                               max_precond_dim=group['max_precond_dim'],
++                                               merge_dims=group["merge_dims"],
++                                               precondition_1d=group["precondition_1d"])
++        
+         return loss
+ 
+-    def init_preconditioner(self, grad, state, precondition_frequency=10, 
+-                            shampoo_beta=0.95, max_precond_dim=10000,
+-                            one_sided_dim_threshold=None, precondition_1d=False,
+-                            merge_dims=False):
+-        """
+-        Initializes the preconditioner matrices (L and R in the paper).
+-        """
+-        state['GG'] = [] # Will hold all the preconditioner matrices (L and R in the paper).
+-        if grad.dim() == 1:
+-            if not precondition_1d or grad.shape[0] &gt; max_precond_dim:
+-                state['GG'].append([])
+-            else:
+-                state['GG'].append(torch.zeros(grad.shape[0], grad.shape[0], device=grad.device))
+-        else:
+-            if merge_dims:
+-                grad = self.merge_dims(grad, max_precond_dim)
+-            one_sided_axis = None
+-            if (
+-                one_sided_dim_threshold is not None
+-                and grad.dim() == 2
+-                and max(grad.shape) &gt; one_sided_dim_threshold
+-            ):
+-                one_sided_axis = min(range(2), key=lambda index: (grad.shape[index], index))
+-
+-            for index, sh in enumerate(grad.shape):
+-                if sh &gt; max_precond_dim or (
+-                    one_sided_axis is not None and index != one_sided_axis
+-                ):
+-                    state['GG'].append([])
+-                else:
+-                    state['GG'].append(torch.zeros(sh, sh, device=grad.device))
+-                    
+-        state['Q'] = None # Will hold all the eigenbases of the preconditioner.
+-        state['precondition_frequency'] = precondition_frequency
+-        state['shampoo_beta'] = shampoo_beta          
+-        
+-    def project(self, grad, state, merge_dims=False, max_precond_dim=10000):
+-        """
+-        Projects the gradient to the eigenbases of the preconditioner.
+-        """
+-        original_shape = grad.shape
+-        if merge_dims:
+-            if grad.dim() == 4 and self._data_format == 'channels_last':
+-                permuted_shape = grad.permute(0, 3, 1, 2).shape
+-            grad = self.merge_dims(grad, max_precond_dim)
+-
+-        for mat in state['Q']:
+-            if len(mat) &gt; 0:
+-                grad = torch.tensordot(
+-                        grad,
+-                        mat,
+-                        dims=[[0], [0]],
+-                    )
+-            else:
+-                permute_order = list(range(1, len(grad.shape))) + [0]
+-                grad = grad.permute(permute_order)
+-        
+-        if merge_dims:
+-            if self._data_format == 'channels_last' and len(original_shape) == 4:
+-                grad = grad.reshape(permuted_shape).permute(0, 2, 3, 1)
+-            else:
+-                grad = grad.reshape(original_shape)
+-        return grad
+-        
+-    def update_preconditioner(self, grad, state, 
+-                              max_precond_dim=10000, merge_dims=False, precondition_1d=False):
+-        """
+-        Updates the preconditioner matrices and the eigenbases (L, R, Q_L, Q_R in the paper).
+-        """
+-        if grad.dim() == 1:
+-            if precondition_1d and grad.shape[0] &lt;= max_precond_dim:
+-                state['GG'][0].lerp_(grad.unsqueeze(1) @ grad.unsqueeze(0), 1-state['shampoo_beta'])
+-        else:
+-            if merge_dims:
+-                new_grad = self.merge_dims(grad, max_precond_dim)
+-                for idx, sh in enumerate(new_grad.shape):
+-                    if len(state['GG'][idx]) &gt; 0:
+-                        outer_product = torch.tensordot(
+-                                new_grad,
+-                                new_grad,
+-                                dims=[[*chain(range(idx), range(idx + 1, len(new_grad.shape)))]] * 2,
+-                            )
+-                        state['GG'][idx].lerp_(outer_product, 1-state['shampoo_beta'])
+-            else:
+-                for idx, sh in enumerate(grad.shape):
+-                    if len(state['GG'][idx]) &gt; 0:
+-                        outer_product = torch.tensordot(
+-                                grad,
+-                                grad,
+-                                # Contracts across all dimensions except for k.
+-                                dims=[[*chain(range(idx), range(idx + 1, len(grad.shape)))]] * 2,
+-                            )
+-                        state['GG'][idx].lerp_(outer_product, 1-state['shampoo_beta'])
+-                     
+-        if state['Q'] is None:
+-            state['Q'] = self.get_identity_basis(state['GG'])
+-            state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)
+-        if state['step'] &gt; 0 and state['step'] % state['precondition_frequency'] == 0:
+-            if self._stale_q_eligible(state, merge_dims):
+-                self._stale_q_submit(state, max_precond_dim, merge_dims)
+-            else:
+-                state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)           
+-
+-    def project_back(self, grad, state, merge_dims=False, max_precond_dim=10000):
+-        """
+-        Projects the gradient back to the original space.
+-        """
+-        original_shape = grad.shape
+-        if merge_dims:
+-            if self._data_format == 'channels_last' and grad.dim() == 4:
+-                permuted_shape = grad.permute(0, 3, 1, 2).shape
+-            grad = self.merge_dims(grad, max_precond_dim)
+-        for mat in state['Q']:
+-            if len(mat) &gt; 0:
+-                grad = torch.tensordot(
+-                        grad,
+-                        mat,
+-                        dims=[[0], [1]],
+-                    )
+-            else:
+-                permute_order = list(range(1, len(grad.shape))) + [0]
+-                grad = grad.permute(permute_order)
+-                
+-        if merge_dims:
+-            if self._data_format == 'channels_last' and len(original_shape) == 4:
+-                grad = grad.reshape(permuted_shape).permute(0, 2, 3, 1)
+-            else:
+-                grad = grad.reshape(original_shape)
+-        return grad
+-        
+-    def get_identity_basis(self, mat):
+-        """
+-        Initializes the eigenbasis on-device, following Meta's QR SOAP implementation.
+-        """
+-        basis = []
++    def init_preconditioner(self, grad, state, precondition_frequency=10, 
++                            shampoo_beta=0.95, max_precond_dim=10000, precondition_1d=False,
++                            merge_dims=False):
++        """
++        Initializes the preconditioner matrices (L and R in the paper).
++        """
++        state['GG'] = [] # Will hold all the preconditioner matrices (L and R in the paper).
++        if grad.dim() == 1:
++            if not precondition_1d or grad.shape[0] &gt; max_precond_dim:
++                state['GG'].append([])
++            else:
++                state['GG'].append(torch.zeros(grad.shape[0], grad.shape[0], device=grad.device))
++        else:
++            if merge_dims:
++                grad = self.merge_dims(grad, max_precond_dim)
++
++            for sh in grad.shape:
++                if sh &gt; max_precond_dim:
++                    state['GG'].append([])
++                else:
++                    state['GG'].append(torch.zeros(sh, sh, device=grad.device))
++                    
++        state['Q'] = None # Will hold all the eigenbases of the preconditioner.
++        state['precondition_frequency'] = precondition_frequency
++        state['shampoo_beta'] = shampoo_beta          
++        
++    def project(self, grad, state, merge_dims=False, max_precond_dim=10000):
++        """
++        Projects the gradient to the eigenbases of the preconditioner.
++        """
++        original_shape = grad.shape
++        if merge_dims:
++            if grad.dim() == 4 and self._data_format == 'channels_last':
++                permuted_shape = grad.permute(0, 3, 1, 2).shape
++            grad = self.merge_dims(grad, max_precond_dim)
++
++        for mat in state['Q']:
++            if len(mat) &gt; 0:
++                grad = torch.tensordot(
++                        grad,
++                        mat,
++                        dims=[[0], [0]],
++                    )
++            else:
++                permute_order = list(range(1, len(grad.shape))) + [0]
++                grad = grad.permute(permute_order)
++        
++        if merge_dims:
++            if self._data_format == 'channels_last' and len(original_shape) == 4:
++                grad = grad.reshape(permuted_shape).permute(0, 2, 3, 1)
++            else:
++                grad = grad.reshape(original_shape)
++        return grad
++        
++    def update_preconditioner(self, grad, state, 
++                              max_precond_dim=10000, merge_dims=False, precondition_1d=False):
++        """
++        Updates the preconditioner matrices and the eigenbases (L, R, Q_L, Q_R in the paper).
++        """
++        if grad.dim() == 1:
++            if precondition_1d and grad.shape[0] &lt;= max_precond_dim:
++                state['GG'][0].lerp_(grad.unsqueeze(1) @ grad.unsqueeze(0), 1-state['shampoo_beta'])
++        else:
++            if merge_dims:
++                new_grad = self.merge_dims(grad, max_precond_dim)
++                for idx, sh in enumerate(new_grad.shape):
++                    if sh &lt;= max_precond_dim:
++                        outer_product = torch.tensordot(
++                                new_grad,
++                                new_grad,
++                                dims=[[*chain(range(idx), range(idx + 1, len(new_grad.shape)))]] * 2,
++                            )
++                        state['GG'][idx].lerp_(outer_product, 1-state['shampoo_beta'])
++            else:
++                for idx, sh in enumerate(grad.shape):
++                    if sh &lt;= max_precond_dim:
++                        outer_product = torch.tensordot(
++                                grad,
++                                grad,
++                                # Contracts across all dimensions except for k.
++                                dims=[[*chain(range(idx), range(idx + 1, len(grad.shape)))]] * 2,
++                            )
++                        state['GG'][idx].lerp_(outer_product, 1-state['shampoo_beta'])
++                     
++        if state['Q'] is None:
++            state['Q'] = self.get_orthogonal_matrix(state['GG'])
++        if state['step'] &gt; 0 and state['step'] % state['precondition_frequency'] == 0:
++            state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)           
++
++    def project_back(self, grad, state, merge_dims=False, max_precond_dim=10000):
++        """
++        Projects the gradient back to the original space.
++        """
++        original_shape = grad.shape
++        if merge_dims:
++            if self._data_format == 'channels_last' and grad.dim() == 4:
++                permuted_shape = grad.permute(0, 3, 1, 2).shape
++            grad = self.merge_dims(grad, max_precond_dim)
++        for mat in state['Q']:
++            if len(mat) &gt; 0:
++                grad = torch.tensordot(
++                        grad,
++                        mat,
++                        dims=[[0], [1]],
++                    )
++            else:
++                permute_order = list(range(1, len(grad.shape))) + [0]
++                grad = grad.permute(permute_order)
++                
++        if merge_dims:
++            if self._data_format == 'channels_last' and len(original_shape) == 4:
++                grad = grad.reshape(permuted_shape).permute(0, 2, 3, 1)
++            else:
++                grad = grad.reshape(original_shape)
++        return grad
++        
++
++    def get_orthogonal_matrix(self, mat):
++        """
++        Computes the eigenbases of the preconditioner using torch.linalg.eigh decomposition.
++        """
++        matrix = []
+         for m in mat:
+-            if len(m) == 0:
+-                basis.append([])
++            if len(m) == 0:
++                matrix.append([])
++                continue
++            if m.data.dtype != torch.float:
++                float_data = False
++                original_type = m.data.dtype
++                original_device = m.data.device
++                matrix.append(m.data.float())
++            else:
++                float_data = True
++                matrix.append(m.data)
++        
++        final = []
++        for m in matrix:
++            if len(m) == 0:
++                final.append([])
++                continue
++            #随机性固定
++            if str(m.device).startswith("npu"):
++                # NPU does not support float64 eigh. Make the CPU fallback
++                # explicit so the decomposition path is stable across runs.
++                m_cpu = m.detach().to(device="cpu", dtype=torch.float64)
++                eye_cpu = torch.eye(m.shape[0], device="cpu", dtype=torch.float64)
++                _, Q = torch.linalg.eigh(m_cpu + 1e-30 * eye_cpu)
++                Q = Q.to(device=m.device, dtype=m.dtype)
++            #随机性固定
+             else:
+-                basis.append(torch.eye(m.shape[0], device=m.device, dtype=m.dtype))
+-        return basis
+-        
+-
+-    def get_orthogonal_matrix_QR(self, state, max_precond_dim=10000, merge_dims=False):
+-        """
+-        Computes the eigenbases of the preconditioner using one round of power iteration 
+-        followed by torch.linalg.qr decomposition.
+-
+-        The complete update stays on the parameter device and computes in FP32.
+-        """
+-        precond_list = state['GG']
+-        orth_list = state['Q']
+-
+-        matrix = []
+-        orth_matrix = []
+-        for m,o in zip(precond_list, orth_list):
+-            if len(m) == 0:
+-                matrix.append([])
+-                orth_matrix.append([])
+-                continue
+-            if m.dtype != torch.float32:
+-                matrix.append(m.float())
+-                orth_matrix.append(o.float())
++                try:
++                    _, Q = torch.linalg.eigh(m.to(torch.float64)+1e-30*torch.eye(m.shape[0], device=m.device))
++                    Q = Q.to(m.dtype)
++                except:
++                    _, Q = torch.linalg.eigh(m.cpu()+1e-30*torch.eye(m.shape[0]))
++                    Q = Q.to(m.device)
++            Q = torch.flip(Q, [1])
++
++            if not float_data:
++                Q = Q.to(original_device).type(original_type)
++            final.append(Q)
++        return final
++        
++
++    def get_orthogonal_matrix_QR(self, state, max_precond_dim=10000, merge_dims=False):
++        """
++        Computes the eigenbases of the preconditioner using one round of power iteration
++        followed by mx_driving_cloud.linalg.qr (original SOAP path, operator swapped).
++        """
++        precond_list = state['GG']
++        orth_list = state['Q']
++
++        matrix = []
++        orth_matrix = []
++        for m,o in zip(precond_list, orth_list):
++            if len(m) == 0:
++                matrix.append([])
++                orth_matrix.append([])
++                continue
++            if m.data.dtype != torch.float:
++                float_data = False
++                original_type = m.data.dtype
++                original_device = m.data.device
++                matrix.append(m.data.float())
++                orth_matrix.append(o.data.float())
+             else:
+-                matrix.append(m)
+-                orth_matrix.append(o)
+-        
+-        orig_shape = state['exp_avg_sq'].shape
+-        if self._data_format == 'channels_last' and len(orig_shape) == 4:
+-            permuted_shape = state['exp_avg_sq'].permute(0, 3, 1, 2).shape
+-        if merge_dims:
+-            exp_avg_sq = self.merge_dims(state['exp_avg_sq'], max_precond_dim)
+-        else:
+-            exp_avg_sq = state['exp_avg_sq']
+-            
+-        final = []
+-        for ind, (m,o) in enumerate(zip(matrix, orth_matrix)):
+-            if len(m)==0:
+-                final.append([])
+-                continue
+-            original_dtype = precond_list[ind].dtype
++                float_data = True
++                matrix.append(m.data.float())
++                orth_matrix.append(o.data.float())
++
++        orig_shape = state['exp_avg_sq'].shape
++        if self._data_format == 'channels_last' and len(orig_shape) == 4:
++            permuted_shape = state['exp_avg_sq'].permute(0, 3, 1, 2).shape
++        if merge_dims:
++            exp_avg_sq = self.merge_dims(state['exp_avg_sq'], max_precond_dim)
++        else:
++            exp_avg_sq = state['exp_avg_sq']
++
++        final = []
++        for ind, (m,o) in enumerate(zip(matrix, orth_matrix)):
++            if len(m)==0:
++                final.append([])
++                continue
+             est_eig = torch.diag(o.T @ m @ o)
+-            sort_idx = torch.argsort(est_eig, descending=True, stable=True)
++            sort_idx = torch.argsort(est_eig, descending=True)
+             exp_avg_sq = exp_avg_sq.index_select(ind, sort_idx)
+-            o = o.index_select(1, sort_idx)
++            o = o[:,sort_idx]
+             power_iter = m @ o
+-            Q, _ = torch.linalg.qr(power_iter)
+-            if Q.dtype != original_dtype:
+-                Q = Q.to(original_dtype)
++            Q, R = mx_driving_cloud.linalg.qr(power_iter)
++            self._log_qr_operator_check(state, ind, power_iter, Q, R)
++
++            if not float_data:
++                Q = Q.to(original_device).type(original_type)
+             final.append(Q)
+-        
+-        if merge_dims:
+-            if self._data_format == 'channels_last' and len(orig_shape) == 4:
+-                exp_avg_sq = exp_avg_sq.reshape(permuted_shape).permute(0, 2, 3, 1)
+-            else:
+-                exp_avg_sq = exp_avg_sq.reshape(orig_shape)
+-                
+-        state['exp_avg_sq'] = exp_avg_sq
+-        return final
+-
+-    # --- STEP-221 stale-Q asynchronous cycle QR -------------------------------
+-    _STALE_Q_SHAPES = frozenset({
+-        1, 3, 4, 7, 8, 11, 22, 32, 40, 64, 96, 120, 128, 160, 192,
+-        220, 256, 352, 440, 512, 768, 1024, 2560,
+-    })
+-
+-    def _stale_q_k(self):
+-        cached = getattr(self, "_stale_q_k_cached", None)
+-        if cached is None:
+-            try:
+-                cached = int(os.environ.get("SOAP_STALE_Q_K", "0"))
+-            except ValueError:
+-                cached = 0
+-            if cached &lt; 0:
+-                cached = 0
+-            self._stale_q_k_cached = cached
+-        return cached
+-
+-    def _stale_q_side_stream(self):
+-        stream = getattr(self, "_stale_q_stream_cached", None)
+-        if stream is None:
+-            stream = torch.npu.Stream()
+-            self._stale_q_stream_cached = stream
+-        return stream
+-
+-    def _stale_q_eligible(self, state, merge_dims):
+-        k = self._stale_q_k()
+-        if k &lt;= 0 or merge_dims:
+-            return False
+-        if k &gt;= int(state["precondition_frequency"]):
+-            return False
+-        if not (hasattr(torch, "npu") and torch.npu.is_available()):
+-            return False
+-        if self._data_format == "channels_last" and state["exp_avg_sq"].dim() == 4:
+-            return False
+-        for m, o in zip(state["GG"], state["Q"]):
+-            if len(m) == 0:
+-                continue
+-            if m.dtype != torch.float32 or o.dtype != torch.float32:
+-                return False
+-            if o.shape[0] != o.shape[1] or int(o.shape[0]) not in self._STALE_Q_SHAPES:
+-                return False
+-        return True
+-
+-    def _qr_plan(self, state, max_precond_dim=10000, merge_dims=False):
+-        """Default-stream half of the cycle basis update; contains no QR."""
+-        precond_list = state['GG']
+-        orth_list = state['Q']
+-
+-        matrix = []
+-        orth_matrix = []
+-        for m, o in zip(precond_list, orth_list):
+-            if len(m) == 0:
+-                matrix.append([])
+-                orth_matrix.append([])
+-                continue
+-            if m.dtype != torch.float32:
+-                matrix.append(m.float())
+-                orth_matrix.append(o.float())
+-            else:
+-                matrix.append(m)
+-                orth_matrix.append(o)
+-
+-        plan = []
+-        for ind, (m, o) in enumerate(zip(matrix, orth_matrix)):
+-            if len(m) == 0:
+-                plan.append(None)
+-                continue
+-            est_eig = torch.diag(o.T @ m @ o)
+-            sort_idx = torch.argsort(est_eig, descending=True, stable=True)
+-            o = o.index_select(1, sort_idx)
+-            plan.append({
+-                "ind": ind,
+-                "sort_idx": sort_idx,
+-                "power_iter": m @ o,
+-                "original_dtype": precond_list[ind].dtype,
+-            })
+-        return plan
+-
+-    def _qr_finish(self, plan):
+-        """The AICPU-bound half: one linalg.qr per planned factor."""
+-        result = []
+-        for entry in plan:
+-            if entry is None:
+-                result.append(None)
+-                continue
+-            Q, _ = torch.linalg.qr(entry["power_iter"])
+-            if Q.dtype != entry["original_dtype"]:
+-                Q = Q.to(entry["original_dtype"])
+-            result.append(Q)
+-        return result
+-
+-    def _qr_install(self, state, plan, qlist, max_precond_dim=10000, merge_dims=False):
+-        """Atomically apply the planned exp_avg_sq permutation and the new Q."""
+-        orig_shape = state['exp_avg_sq'].shape
+-        if self._data_format == 'channels_last' and len(orig_shape) == 4:
+-            permuted_shape = state['exp_avg_sq'].permute(0, 3, 1, 2).shape
+-        if merge_dims:
+-            exp_avg_sq = self.merge_dims(state['exp_avg_sq'], max_precond_dim)
+-        else:
+-            exp_avg_sq = state['exp_avg_sq']
+-
+-        final = []
+-        for entry, Q in zip(plan, qlist):
+-            if entry is None:
+-                final.append([])
+-                continue
+-            exp_avg_sq = exp_avg_sq.index_select(entry["ind"], entry["sort_idx"])
+-            final.append(Q)
+-
+-        if merge_dims:
+-            if self._data_format == 'channels_last' and len(orig_shape) == 4:
+-                exp_avg_sq = exp_avg_sq.reshape(permuted_shape).permute(0, 2, 3, 1)
+-            else:
+-                exp_avg_sq = exp_avg_sq.reshape(orig_shape)
+-
+-        state['exp_avg_sq'] = exp_avg_sq
+-        state['Q'] = final
+-        return final
+-
+-    def _stale_q_submit(self, state, max_precond_dim, merge_dims):
+-        if state.get("_stale_q_pending") is not None:
+-            raise RuntimeError("SOAP stale-Q pending overlap (k must stay &lt; frequency)")
+-        plan = self._qr_plan(state, max_precond_dim, merge_dims)
+-        stream = self._stale_q_side_stream()
+-        stream.wait_stream(torch.npu.current_stream())
+-        with torch.npu.stream(stream):
+-            qlist = self._qr_finish(plan)
+-        for entry in plan:
+-            if entry is not None:
+-                # record_stream lets the allocator reclaim the block only after
+-                # the side stream has consumed it, so the reference can go now
+-                # instead of being held for k steps.
+-                entry["power_iter"].record_stream(stream)
+-                entry["power_iter"] = None
+-        event = torch.npu.Event()
+-        event.record(stream)
+-        state["_stale_q_pending"] = {
+-            "plan": plan,
+-            "qlist": qlist,
+-            "event": event,
+-            "target_step": int(state["step"]) + self._stale_q_k(),
+-            "max_precond_dim": max_precond_dim,
+-            "merge_dims": merge_dims,
+-        }
+-
+-    def _stale_q_install_if_due(self, state, force=False):
+-        pending = state.get("_stale_q_pending")
+-        if pending is None:
+-            return
+-        if not force and int(state["step"]) &lt; int(pending["target_step"]):
+-            return
+-        pending["event"].synchronize()
+-        current = torch.npu.current_stream()
+-        for value in pending["qlist"]:
+-            if torch.is_tensor(value):
+-                # Allocated on the side stream, consumed here on the default one.
+-                value.record_stream(current)
+-        self._qr_install(
+-            state, pending["plan"], pending["qlist"],
+-            pending["max_precond_dim"], pending["merge_dims"],
+-        )
+-        state.pop("_stale_q_pending", None)
+-
+-    def state_dict(self):
+-        """Flush any in-flight basis so the persisted schema stays the 7-key contract."""
+-        for state in self.state.values():
+-            self._stale_q_install_if_due(state, force=True)
+-        return super().state_dict()
++
++        if merge_dims:
++            if self._data_format == 'channels_last' and len(orig_shape) == 4:
++                exp_avg_sq = exp_avg_sq.reshape(permuted_shape).permute(0, 2, 3, 1)
++            else:
++                exp_avg_sq = exp_avg_sq.reshape(orig_shape)
++
++        state['exp_avg_sq'] = exp_avg_sq
++        return final
++
++    def _log_qr_operator_check(self, state, ind, A, Q, R):
++        """Check finite A/Q/R and Q@R~A; dump concrete tensors for operator owners."""
++        log_path = os.environ.get('SOAP_QR_SHAPE_LOG')
++        dump_dir = os.environ.get('SOAP_QR_DUMP_DIR')
++        if not log_path and not dump_dir:
++            return
++        rank = 0
++        try:
++            import torch.distributed as dist
++            if dist.is_available() and dist.is_initialized():
++                rank = dist.get_rank()
++        except Exception:
++            rank = 0
++        import json
++        a_ok = bool(torch.isfinite(A).all().item())
++        q_ok = bool(torch.isfinite(Q).all().item())
++        r_ok = bool(torch.isfinite(R).all().item())
++        recon_max = None
++        if a_ok and q_ok and r_ok:
++            recon_max = float((Q @ R - A).abs().max().item())
++        rec = {
++            'rank': int(rank),
++            'opt_step': int(state.get('step', -1)),
++            'factor_ind': int(ind),
++            'shape': [int(x) for x in A.shape],
++            'dtype': str(A.dtype).replace('torch.', ''),
++            'A_finite': a_ok,
++            'Q_finite': q_ok,
++            'R_finite': r_ok,
++            'recon_max': recon_max,
++        }
++        if log_path:
++            with open(log_path, 'a', encoding='utf-8') as f:
++                f.write(json.dumps(rec) + '\n')
++        if not dump_dir:
++            return
++        bad = (not a_ok) or (not q_ok) or (not r_ok) or (
++            recon_max is not None and recon_max &gt; 1e-3)
++        dumped = getattr(self, '_qr_dump_shapes', None)
++        if dumped is None:
++            dumped = set()
++            self._qr_dump_shapes = dumped
++        shp = tuple(int(x) for x in A.shape)
++        # rank0 first cycle: one sample per unique shape, plus every anomaly.
++        need_sample = (rank == 0 and rec['opt_step'] == 10 and shp not in dumped)
++        if not (bad or need_sample):
++            return
++        os.makedirs(dump_dir, exist_ok=True)
++        tag = 'BAD' if bad else 'SAMPLE'
++        name = 'rank%d_step%d_ind%d_%dx%d_%s.pt' % (
++            rank, rec['opt_step'], ind, shp[0], shp[1] if len(shp)&gt;1 else 0, tag)
++        payload = {
++            'A': A.detach().to('cpu').contiguous(),
++            'Q': Q.detach().to('cpu').contiguous(),
++            'R': R.detach().to('cpu').contiguous(),
++            'meta': rec,
++            'note': 'mx_driving_cloud.linalg.qr IO for operator replay; Q,R = qr(A)',
++        }
++        torch.save(payload, os.path.join(dump_dir, name))
++        meta_name = name.replace('.pt', '.json')
++        with open(os.path.join(dump_dir, meta_name), 'w', encoding='utf-8') as f:
++            json.dump(rec, f)
++        if need_sample:
++            dumped.add(shp)
+</code></pre>
+</details>
+</div></div><div class="card" id="item-5899e94"><h3><span class="sha-chip">5899e94</span>撤回误入库 mx_driving_cloud 包</h3><p class="field"><span class="label">适配对象</span>删除误提交进业务仓库的 mx_driving_cloud 源码树，改回仅使用客户环境 driving-cloud-ops wheel。</p><p class="field"><span class="label">原理</span>算子包应由客户 CANN/wheel 统一交付；仓库内嵌副本会与 site-packages 版本漂移并造成双路径维护。</p><p class="field"><span class="label">为何可优化</span>10f897d 的本地 linalg 仅为临时 bypass 试验，不应作为正式交付物留在 Git 中。</p><p class="field"><span class="label">做了什么</span>删除 mx_driving_cloud/ 三个占位/包装文件（48 行 linalg 逻辑撤回）；SOAP 仍保留 mx QR 调用，运行时走 wheel。</p><p class="field"><span class="label">涉及文件</span>mx_driving_cloud/__init__.py；mx_driving_cloud/ops/__init__.py；mx_driving_cloud/ops/linalg.py</p><div class="file-stack">
+<details class="code-fold">
+  <summary>Diff — 5899e94 撤回误入库 mx_driving_cloud 包</summary>
+  <pre class="code"><code>diff --git a/mx_driving_cloud/__init__.py b/mx_driving_cloud/__init__.py
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/mx_driving_cloud/ops/__init__.py b/mx_driving_cloud/ops/__init__.py
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/mx_driving_cloud/ops/linalg.py b/mx_driving_cloud/ops/linalg.py
+deleted file mode 100644
+index 5788c3a..0000000
+--- a/mx_driving_cloud/ops/linalg.py
++++ /dev/null
+@@ -1,48 +0,0 @@
+-# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+-# NPU QR: 192x192 uses torch.linalg.qr; larger matrices use QrV2 when device path is healthy.
+-
+-import torch
+-import torch.nn.functional as F
+-from torch.autograd import Function
+-
+-import mx_driving_cloud._C
+-
+-BLOCK_TILING = 64
+-QR_AICPU_THRESHOLD_SHAPE = 80
+-QR_SOAP_FIXED_SHAPE = 192
+-
+-
+-class QR(Function):
+-    @staticmethod
+-    def forward(ctx, A: torch.Tensor):
+-        dim = A.shape
+-        if len(dim) != 2:
+-            raise ValueError(
+-                f"Input tensor must be 2D, got {len(dim)}D shape {dim}")
+-
+-        if dim[0] &lt;= QR_AICPU_THRESHOLD_SHAPE or dim[1] &lt;= QR_AICPU_THRESHOLD_SHAPE:
+-            return torch.linalg.qr(A)
+-
+-        if dim[0] == QR_SOAP_FIXED_SHAPE and dim[1] == QR_SOAP_FIXED_SHAPE:
+-            return torch.linalg.qr(A)
+-
+-        lda = max(dim[0], dim[1])
+-        if lda == 0:
+-            return (A, A)
+-        if dim[0] == 1:
+-            return (torch.ones(1, 1, dtype=A.dtype, device=A.device), A)
+-
+-        pad = lda % BLOCK_TILING
+-        pad = BLOCK_TILING - pad if pad else 0
+-        lda_pad = lda + pad
+-        A_pad = F.pad(
+-            A,
+-            (0, lda_pad - dim[1], 0, lda_pad - dim[0]),
+-        ).contiguous()
+-        Q, R = mx_driving_cloud._C.qr(A_pad)
+-        Q = Q[: dim[0], : dim[0]]
+-        R = R[: dim[0], : dim[1]]
+-        return Q, torch.triu(R)
+-
+-
+-qr = QR.apply
+</code></pre>
+</details>
+</div></div><div class="card" id="item-9565044"><h3><span class="sha-chip">9565044</span>SOAP 使用 mx_driving_cloud.linalg.qr</h3><p class="field"><span class="label">适配对象</span>在恢复 stale-Q（k=4）异步流水的前提下，将两处 QR 调用切换为客户 mx_driving_cloud.linalg.qr。</p><p class="field"><span class="label">原理</span>stale-Q 把 AICPU QR 移出关键路径；mx QR 若在 NPU 上更快，可进一步压缩周期步墙时。</p><p class="field"><span class="label">为何可优化</span>STEP-284 目标是把 torch.linalg.qr 替换为 NPU 原生 QR，与 fb979b2 + 2846401 性能栈叠加。</p><p class="field"><span class="label">做了什么</span>soap.py：import mx_driving_cloud；get_orthogonal_matrix_QR / _qr_finish 改用 mx_driving_cloud.linalg.qr；恢复 STEP-221 stale-Q 全套方法与周期分支。</p><p class="field"><span class="label">涉及文件</span>projects/mmdet3d_plugin/optimizers/soap.py</p><div class="file-stack">
+<details class="code-fold">
+  <summary>Diff — 9565044 SOAP 使用 mx_driving_cloud.linalg.qr</summary>
+  <pre class="code"><code>diff --git a/projects/mmdet3d_plugin/optimizers/soap.py b/projects/mmdet3d_plugin/optimizers/soap.py
+index 59bcd2d..77e412c 100644
+--- a/projects/mmdet3d_plugin/optimizers/soap.py
++++ b/projects/mmdet3d_plugin/optimizers/soap.py
+@@ -1,121 +1,201 @@
+-import torch
+-import torch.nn as nn
+-from torch.optim import Optimizer
+-from mmcv.runner.optimizer import OPTIMIZERS
+-from itertools import chain
+-import os
+-import mx_driving_cloud
++import os
++import torch
++import mx_driving_cloud
++import torch.nn as nn
++from torch.optim import Optimizer
++from mmcv.runner.optimizer import OPTIMIZERS
++from itertools import chain
++
++# Parts of the code are modifications of Pytorch's AdamW optimizer
++# Parts of the code are modifications of code from https://github.com/jiaweizzhao/GaLore/blob/master/galore_torch/galore_projector.py
++@OPTIMIZERS.register_module()
++class SOAP(Optimizer):
++    """
++    Implements SOAP algorithm (https://arxiv.org/abs/2409.11321).
++
++    Parameters:
++        params (`Iterable[nn.parameter.Parameter]`):
++            Iterable of parameters to optimize or dictionaries defining parameter groups.
++        lr (`float`, *optional*, defaults to 0.003):
++            The learning rate to use.
++        betas (`Tuple[float,float]`, *optional*, defaults to `(0.95, 0.95)`):
++            Adam's betas parameters (b1, b2).
++        shampoo_beta (`float`, *optional*, defaults to -1):
++            If &gt;= 0, use this beta for the preconditioner (L and R in paper, state['GG'] below) moving average instead of betas[1].
++        eps (`float`, *optional*, defaults to 1e-08):
++            Adam's epsilon for numerical stability.
++        weight_decay (`float`, *optional*, defaults to 0.01): weight decay coefficient.
++        precondition_frequency (`int`, *optional*, defaults to 10):
++            How often to update the preconditioner.
++        max_precond_dim (`int`, *optional*, defaults to 10000):
++            Maximum dimension of the preconditioner.
++            Set to 10000, so that we exclude most common vocab sizes while including layers.
++        merge_dims (`bool`, *optional*, defaults to `False`):
++            Whether or not to merge dimensions of the preconditioner.
++        precondition_1d (`bool`, *optional*, defaults to `False`):
++            Whether or not to precondition 1D gradients.
++        normalize_grads (`bool`, *optional*, defaults to `False`):
++            Whether or not to normalize gradients per layer. 
++            Helps at large precondition_frequency (~100 in our experiments), 
++            but hurts performance at small precondition_frequency (~10 in our experiments).
++        data_format (`str`, *optional*, defaults to `channels_first`):
++            Data format of the input for convolutional layers.
++            Should be "channels_last" for data_format of NHWC and "channels_first" for NCHW.
++        correct_bias (`bool`, *optional*, defaults to `True`):
++            Whether or not to use bias correction in Adam.
++    """
++
++    def __init__(
++        self,
++        params,
++        lr: float = 3e-3,
++        betas=(0.9, 0.9),
++        shampoo_beta: float= -1,
++        eps: float = 1e-6,
++        weight_decay: float = 0.01,
++        precondition_frequency: int=10,
++        max_precond_dim: int=10000, # 
++        one_sided_dim_threshold: int | None = None,
++        merge_dims: bool = False, # Merge dimensions till the product of the dimensions is less than or equal to max_precond_dim.
++        precondition_1d: bool = False,
++        normalize_grads: bool = False,
++        data_format: str = "channels_first",
++        correct_bias: bool = True,
++    ):
++        defaults = {
++            "lr": lr,
++            "betas": betas,
++            "shampoo_beta": shampoo_beta,
++            "eps": eps,
++            "weight_decay": weight_decay,
++            "precondition_frequency": precondition_frequency,
++            "max_precond_dim": max_precond_dim,
++            "one_sided_dim_threshold": one_sided_dim_threshold,
++            "merge_dims": merge_dims,
++            "precondition_1d": precondition_1d,
++            "normalize_grads": normalize_grads,
++            "correct_bias": correct_bias,
++        }
++        super().__init__(params, defaults)
++        self._data_format = data_format
++        
++    def merge_dims(self, grad, max_precond_dim):
++        """
++        Merges dimensions of the gradient tensor till the product of the dimensions is less than or equal to max_precond_dim.
++        """
++        assert self._data_format in ["channels_first", "channels_last"]
++        if self._data_format == "channels_last" and grad.dim() == 4:
++            grad = grad.permute(0, 3, 1, 2)
++        shape = grad.shape
++        new_shape = []
++        
++        curr_shape = 1
++        for sh in shape:
++            temp_shape = curr_shape * sh
++            if temp_shape &gt; max_precond_dim:
++                if curr_shape &gt; 1:
++                    new_shape.append(curr_shape)
++                    curr_shape = sh
++                else:
++                    new_shape.append(sh)
++                    curr_shape = 1
++            else:
++                curr_shape = temp_shape
++        
++        if curr_shape &gt; 1 or len(new_shape)==0:
++            new_shape.append(curr_shape)
++        
++        new_grad = grad.reshape(new_shape)
++        return new_grad     
++    
++    def _foreach_chunk_key(self, group, state, grad):
++        """Return settings that must remain identical inside a chunk."""
++        return (
++            group["betas"], group["eps"], group["lr"],
++            group["weight_decay"], group["correct_bias"],
++            group["normalize_grads"], group["max_precond_dim"],
++            group["merge_dims"], group["precondition_1d"],
++            group["precondition_frequency"], state["step"],
++            grad.device, grad.dtype,
++        )
+ 
+-# Parts of the code are modifications of Pytorch's AdamW optimizer
+-# Parts of the code are modifications of code from https://github.com/jiaweizzhao/GaLore/blob/master/galore_torch/galore_projector.py
+-@OPTIMIZERS.register_module()
+-class SOAP(Optimizer):
+-    """
+-    Implements SOAP algorithm (https://arxiv.org/abs/2409.11321).
++    def _step_foreach_chunk(self, chunk):
++        """Update an ordered chunk without changing each tensor's math."""
++        params = [item[0] for item in chunk]
++        grads = [item[1] for item in chunk]
++        states = [item[2] for item in chunk]
++        group = chunk[0][3]
++        beta1, beta2 = group["betas"]
++        for state in states:
++            self._stale_q_install_if_due(state)
++        grad_projected = [
++            self.project(grad, state, merge_dims=group["merge_dims"],
++                         max_precond_dim=group["max_precond_dim"])
++            for grad, state in zip(grads, states)
++        ]
++        exp_avg = [state["exp_avg"] for state in states]
++        exp_avg_sq = [state["exp_avg_sq"] for state in states]
++        for state in states:
++            state["step"] += 1
++        torch._foreach_mul_(exp_avg, beta1)
++        torch._foreach_add_(exp_avg, grads, alpha=(1.0 - beta1))
++        torch._foreach_mul_(exp_avg_sq, beta2)
++        grad_projected_sq = torch._foreach_mul(grad_projected, grad_projected)
++        torch._foreach_add_(exp_avg_sq, grad_projected_sq,
++                            alpha=(1.0 - beta2))
++        del grad_projected_sq, grad_projected
++        denom = torch._foreach_sqrt(exp_avg_sq)
++        torch._foreach_add_(denom, group["eps"])
++        exp_avg_projected = [
++            self.project(avg, state, merge_dims=group["merge_dims"],
++                         max_precond_dim=group["max_precond_dim"])
++            for avg, state in zip(exp_avg, states)
++        ]
++        preconditioned = torch._foreach_div(exp_avg_projected, denom)
++        del exp_avg_projected, denom
++        norm_grads = [
++            self.project_back(value, state, merge_dims=group["merge_dims"],
++                              max_precond_dim=group["max_precond_dim"])
++            for value, state in zip(preconditioned, states)
++        ]
++        del preconditioned
++        if group["normalize_grads"]:
++            norm_grads = [
++                grad / (1e-30 + torch.mean(grad ** 2) ** 0.5)
++                for grad in norm_grads
++            ]
++        step_size = group["lr"]
++        if group["correct_bias"]:
++            step = states[0]["step"]
++            bias_correction1 = 1.0 - beta1 ** step
++            bias_correction2 = 1.0 - beta2 ** step
++            step_size = step_size * (bias_correction2 ** .5) / bias_correction1
++        torch._foreach_add_(params, norm_grads, alpha=-step_size)
++        if group["weight_decay"] &gt; 0.0:
++            torch._foreach_add_(params, params,
++                                alpha=(-group["lr"] * group["weight_decay"]))
++        for grad, state in zip(grads, states):
++            self.update_preconditioner(
++                grad, state, max_precond_dim=group["max_precond_dim"],
++                merge_dims=group["merge_dims"],
++                precondition_1d=group["precondition_1d"])
+ 
+-    Parameters:
+-        params (`Iterable[nn.parameter.Parameter]`):
+-            Iterable of parameters to optimize or dictionaries defining parameter groups.
+-        lr (`float`, *optional*, defaults to 0.003):
+-            The learning rate to use.
+-        betas (`Tuple[float,float]`, *optional*, defaults to `(0.95, 0.95)`):
+-            Adam's betas parameters (b1, b2).
+-        shampoo_beta (`float`, *optional*, defaults to -1):
+-            If &gt;= 0, use this beta for the preconditioner (L and R in paper, state['GG'] below) moving average instead of betas[1].
+-        eps (`float`, *optional*, defaults to 1e-08):
+-            Adam's epsilon for numerical stability.
+-        weight_decay (`float`, *optional*, defaults to 0.01): weight decay coefficient.
+-        precondition_frequency (`int`, *optional*, defaults to 10):
+-            How often to update the preconditioner.
+-        max_precond_dim (`int`, *optional*, defaults to 10000):
+-            Maximum dimension of the preconditioner.
+-            Set to 10000, so that we exclude most common vocab sizes while including layers.
+-        merge_dims (`bool`, *optional*, defaults to `False`):
+-            Whether or not to merge dimensions of the preconditioner.
+-        precondition_1d (`bool`, *optional*, defaults to `False`):
+-            Whether or not to precondition 1D gradients.
+-        normalize_grads (`bool`, *optional*, defaults to `False`):
+-            Whether or not to normalize gradients per layer. 
+-            Helps at large precondition_frequency (~100 in our experiments), 
+-            but hurts performance at small precondition_frequency (~10 in our experiments).
+-        data_format (`str`, *optional*, defaults to `channels_first`):
+-            Data format of the input for convolutional layers.
+-            Should be "channels_last" for data_format of NHWC and "channels_first" for NCHW.
+-        correct_bias (`bool`, *optional*, defaults to `True`):
+-            Whether or not to use bias correction in Adam.
+-    """
+-
+-    def __init__(
+-        self,
+-        params,
+-        lr: float = 3e-3,
+-        betas=(0.9, 0.9),
+-        shampoo_beta: float= -1,
+-        eps: float = 1e-6,
+-        weight_decay: float = 0.01,
+-        precondition_frequency: int=10,
+-        max_precond_dim: int=10000, # 
+-        one_sided_dim_threshold=None,
+-        merge_dims: bool = False, # Merge dimensions till the product of the dimensions is less than or equal to max_precond_dim.
+-        precondition_1d: bool = False,
+-        normalize_grads: bool = False,
+-        data_format: str = "channels_first",
+-        correct_bias: bool = True,
+-    ):
+-        defaults = {
+-            "lr": lr,
+-            "betas": betas,
+-            "shampoo_beta": shampoo_beta,
+-            "eps": eps,
+-            "weight_decay": weight_decay,
+-            "precondition_frequency": precondition_frequency,
+-            "max_precond_dim": max_precond_dim,
+-            "merge_dims": merge_dims,
+-            "precondition_1d": precondition_1d,
+-            "normalize_grads": normalize_grads,
+-            "correct_bias": correct_bias,
+-        }
+-        super().__init__(params, defaults)
+-        self._data_format = data_format
+-        
+-    def merge_dims(self, grad, max_precond_dim):
+-        """
+-        Merges dimensions of the gradient tensor till the product of the dimensions is less than or equal to max_precond_dim.
+-        """
+-        assert self._data_format in ["channels_first", "channels_last"]
+-        if self._data_format == "channels_last" and grad.dim() == 4:
+-            grad = grad.permute(0, 3, 1, 2)
+-        shape = grad.shape
+-        new_shape = []
+-        
+-        curr_shape = 1
+-        for sh in shape:
+-            temp_shape = curr_shape * sh
+-            if temp_shape &gt; max_precond_dim:
+-                if curr_shape &gt; 1:
+-                    new_shape.append(curr_shape)
+-                    curr_shape = sh
+-                else:
+-                    new_shape.append(sh)
+-                    curr_shape = 1
+-            else:
+-                curr_shape = temp_shape
+-        
+-        if curr_shape &gt; 1 or len(new_shape)==0:
+-            new_shape.append(curr_shape)
+-        
+-        new_grad = grad.reshape(new_shape)
+-        return new_grad     
+-    
+     @torch.no_grad()
+     def step(self):
+-        """
+-        Performs a single optimization step.
+-
+-        Arguments:
+-            closure (`Callable`, *optional*): A closure that reevaluates the model and returns the loss.
+-        """
++        """Performs a single optimization step."""
+         loss = None
++        chunk = []
++        chunk_key = None
++        chunk_numel = 0
++        chunk_numel_limit = 8_000_000
++
++        def flush_chunk():
++            nonlocal chunk, chunk_key, chunk_numel
++            if chunk:
++                self._step_foreach_chunk(chunk)
++                chunk = []
++                chunk_key = None
++                chunk_numel = 0
+ 
+         for group in self.param_groups:
+             for p in group["params"]:
+@@ -123,378 +203,409 @@ class SOAP(Optimizer):
+                     continue
+                 p.grad.nan_to_num_()
+                 grad = p.grad
+-
+                 state = self.state[p]
+-                
+                 if "step" not in state:
+-                    state["step"] = 0 
+-                    
+-                # State initialization
++                    state["step"] = 0
+                 if "exp_avg" not in state:
+-                    # Exponential moving average of gradient values
+                     state["exp_avg"] = torch.zeros_like(grad)
+-                    # Exponential moving average of squared gradient values
+                     state["exp_avg_sq"] = torch.zeros_like(grad)
+-
+-                if 'Q' not in state:
++                if "Q" not in state:
++                    flush_chunk()
+                     self.init_preconditioner(
+-                        grad,
+-                        state,
+-                        precondition_frequency=group['precondition_frequency'],
+-                        precondition_1d=group['precondition_1d'],
+-                        shampoo_beta=(group['shampoo_beta'] if group['shampoo_beta'] &gt;= 0 else group["betas"][1]),
+-                        max_precond_dim=group['max_precond_dim'],
++                        grad, state,
++                        precondition_frequency=group["precondition_frequency"],
++                        precondition_1d=group["precondition_1d"],
++                        shampoo_beta=(group["shampoo_beta"]
++                                      if group["shampoo_beta"] &gt;= 0
++                                      else group["betas"][1]),
++                        max_precond_dim=group["max_precond_dim"],
++                        one_sided_dim_threshold=group["one_sided_dim_threshold"],
++                        merge_dims=group["merge_dims"])
++                    self.update_preconditioner(
++                        grad, state,
++                        max_precond_dim=group["max_precond_dim"],
+                         merge_dims=group["merge_dims"],
+-                    )
+-                    self.update_preconditioner(grad, state,
+-                                               max_precond_dim=group['max_precond_dim'],
+-                                               merge_dims=group["merge_dims"],
+-                                               precondition_1d=group["precondition_1d"])
+-                    continue # first step is skipped so that we never use the current gradients in the projection.
+-                
+-                # Projecting gradients to the eigenbases of Shampoo's preconditioner 
+-                # i.e. projecting to the eigenbases of matrices in state['GG']
+-                grad_projected = self.project(grad, state, merge_dims=group["merge_dims"], 
+-                                              max_precond_dim=group['max_precond_dim'])
+-
+-                exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
+-                beta1, beta2 = group["betas"]
+-
+-                state["step"] += 1
+-
+-                # Decay the first and second moment running average coefficient
+-                # In-place operations to update the averages at the same time
+-                exp_avg.mul_(beta1).add_(grad, alpha=(1.0 - beta1))
+-                exp_avg_sq.mul_(beta2).add_(grad_projected.square(), alpha=(1.0 - beta2))
+-
+-                denom = exp_avg_sq.sqrt().add_(group["eps"])
+-                
+-                # Projecting the exponential moving average of gradients to the eigenbases of Shampoo's preconditioner 
+-                # i.e. projecting to the eigenbases of matrices in state['GG']
+-                exp_avg_projected = self.project(exp_avg, state, merge_dims=group["merge_dims"],
+-                                                 max_precond_dim=group['max_precond_dim'])
+-                
+-                step_size = group["lr"]
+-                if group["correct_bias"]:
+-                    bias_correction1 = 1.0 - beta1 ** (state["step"])
+-                    bias_correction2 = 1.0 - beta2 ** (state["step"])
+-                    step_size = step_size * (bias_correction2 ** .5) / bias_correction1
+-
+-                # Projecting back the preconditioned (by Adam) exponential moving average of gradients
+-                # to the original space
+-                norm_grad = self.project_back(exp_avg_projected / denom, state, merge_dims=group["merge_dims"],
+-                                                 max_precond_dim=group['max_precond_dim'])
+-
+-                if group["normalize_grads"]:
+-                    norm_grad = norm_grad / (1e-30+torch.mean(norm_grad**2)**0.5)
+-                
+-                p.add_(norm_grad, alpha=-step_size)
+-                
+-
+-                # From AdamW code: Just adding the square of the weights to the loss function is *not*
+-                # the correct way of using L2 regularization/weight decay with Adam,
+-                # since that will interact with the m and v parameters in strange ways.
+-                #
+-                # Instead we want to decay the weights in a manner that doesn't interact
+-                # with the m/v parameters. This is equivalent to adding the square
+-                # of the weights to the loss with plain (non-momentum) SGD.
+-                # Add weight decay at the end (fixed version)
+-                if group["weight_decay"] &gt; 0.0:
+-                    p.add_(p, alpha=(-group["lr"] * group["weight_decay"]))
+-                    
+-                # Update is done after the gradient step to avoid using current gradients in the projection.
+-                self.update_preconditioner(grad, state, 
+-                                               max_precond_dim=group['max_precond_dim'],
+-                                               merge_dims=group["merge_dims"],
+-                                               precondition_1d=group["precondition_1d"])
+-        
++                        precondition_1d=group["precondition_1d"])
++                    continue
++                key = self._foreach_chunk_key(group, state, grad)
++                if chunk and (key != chunk_key or
++                              chunk_numel + grad.numel() &gt; chunk_numel_limit):
++                    flush_chunk()
++                if not chunk:
++                    chunk_key = key
++                chunk.append((p, grad, state, group))
++                chunk_numel += grad.numel()
++                if chunk_numel &gt;= chunk_numel_limit:
++                    flush_chunk()
++        flush_chunk()
+         return loss
+ 
+-    def init_preconditioner(self, grad, state, precondition_frequency=10, 
+-                            shampoo_beta=0.95, max_precond_dim=10000, precondition_1d=False,
+-                            merge_dims=False):
+-        """
+-        Initializes the preconditioner matrices (L and R in the paper).
+-        """
+-        state['GG'] = [] # Will hold all the preconditioner matrices (L and R in the paper).
+-        if grad.dim() == 1:
+-            if not precondition_1d or grad.shape[0] &gt; max_precond_dim:
+-                state['GG'].append([])
+-            else:
+-                state['GG'].append(torch.zeros(grad.shape[0], grad.shape[0], device=grad.device))
+-        else:
+-            if merge_dims:
+-                grad = self.merge_dims(grad, max_precond_dim)
+-
+-            for sh in grad.shape:
+-                if sh &gt; max_precond_dim:
+-                    state['GG'].append([])
+-                else:
+-                    state['GG'].append(torch.zeros(sh, sh, device=grad.device))
+-                    
+-        state['Q'] = None # Will hold all the eigenbases of the preconditioner.
+-        state['precondition_frequency'] = precondition_frequency
+-        state['shampoo_beta'] = shampoo_beta          
+-        
+-    def project(self, grad, state, merge_dims=False, max_precond_dim=10000):
+-        """
+-        Projects the gradient to the eigenbases of the preconditioner.
+-        """
+-        original_shape = grad.shape
+-        if merge_dims:
+-            if grad.dim() == 4 and self._data_format == 'channels_last':
+-                permuted_shape = grad.permute(0, 3, 1, 2).shape
+-            grad = self.merge_dims(grad, max_precond_dim)
+-
+-        for mat in state['Q']:
+-            if len(mat) &gt; 0:
+-                grad = torch.tensordot(
+-                        grad,
+-                        mat,
+-                        dims=[[0], [0]],
+-                    )
+-            else:
+-                permute_order = list(range(1, len(grad.shape))) + [0]
+-                grad = grad.permute(permute_order)
+-        
+-        if merge_dims:
+-            if self._data_format == 'channels_last' and len(original_shape) == 4:
+-                grad = grad.reshape(permuted_shape).permute(0, 2, 3, 1)
+-            else:
+-                grad = grad.reshape(original_shape)
+-        return grad
+-        
+-    def update_preconditioner(self, grad, state, 
+-                              max_precond_dim=10000, merge_dims=False, precondition_1d=False):
+-        """
+-        Updates the preconditioner matrices and the eigenbases (L, R, Q_L, Q_R in the paper).
+-        """
+-        if grad.dim() == 1:
+-            if precondition_1d and grad.shape[0] &lt;= max_precond_dim:
+-                state['GG'][0].lerp_(grad.unsqueeze(1) @ grad.unsqueeze(0), 1-state['shampoo_beta'])
+-        else:
+-            if merge_dims:
+-                new_grad = self.merge_dims(grad, max_precond_dim)
+-                for idx, sh in enumerate(new_grad.shape):
+-                    if sh &lt;= max_precond_dim:
+-                        outer_product = torch.tensordot(
+-                                new_grad,
+-                                new_grad,
+-                                dims=[[*chain(range(idx), range(idx + 1, len(new_grad.shape)))]] * 2,
+-                            )
+-                        state['GG'][idx].lerp_(outer_product, 1-state['shampoo_beta'])
+-            else:
+-                for idx, sh in enumerate(grad.shape):
+-                    if sh &lt;= max_precond_dim:
+-                        outer_product = torch.tensordot(
+-                                grad,
+-                                grad,
+-                                # Contracts across all dimensions except for k.
+-                                dims=[[*chain(range(idx), range(idx + 1, len(grad.shape)))]] * 2,
+-                            )
+-                        state['GG'][idx].lerp_(outer_product, 1-state['shampoo_beta'])
+-                     
+-        if state['Q'] is None:
+-            state['Q'] = self.get_orthogonal_matrix(state['GG'])
+-        if state['step'] &gt; 0 and state['step'] % state['precondition_frequency'] == 0:
+-            state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)           
+-
+-    def project_back(self, grad, state, merge_dims=False, max_precond_dim=10000):
+-        """
+-        Projects the gradient back to the original space.
+-        """
+-        original_shape = grad.shape
+-        if merge_dims:
+-            if self._data_format == 'channels_last' and grad.dim() == 4:
+-                permuted_shape = grad.permute(0, 3, 1, 2).shape
+-            grad = self.merge_dims(grad, max_precond_dim)
+-        for mat in state['Q']:
+-            if len(mat) &gt; 0:
+-                grad = torch.tensordot(
+-                        grad,
+-                        mat,
+-                        dims=[[0], [1]],
+-                    )
+-            else:
+-                permute_order = list(range(1, len(grad.shape))) + [0]
+-                grad = grad.permute(permute_order)
+-                
+-        if merge_dims:
+-            if self._data_format == 'channels_last' and len(original_shape) == 4:
+-                grad = grad.reshape(permuted_shape).permute(0, 2, 3, 1)
+-            else:
+-                grad = grad.reshape(original_shape)
+-        return grad
+-        
+-
+-    def get_orthogonal_matrix(self, mat):
+-        """
+-        Computes the eigenbases of the preconditioner using torch.linalg.eigh decomposition.
+-        """
+-        matrix = []
++    def init_preconditioner(self, grad, state, precondition_frequency=10, 
++                            shampoo_beta=0.95, max_precond_dim=10000,
++                            one_sided_dim_threshold=None, precondition_1d=False,
++                            merge_dims=False):
++        """
++        Initializes the preconditioner matrices (L and R in the paper).
++        """
++        state['GG'] = [] # Will hold all the preconditioner matrices (L and R in the paper).
++        if grad.dim() == 1:
++            if not precondition_1d or grad.shape[0] &gt; max_precond_dim:
++                state['GG'].append([])
++            else:
++                state['GG'].append(torch.zeros(grad.shape[0], grad.shape[0], device=grad.device))
++        else:
++            if merge_dims:
++                grad = self.merge_dims(grad, max_precond_dim)
++            one_sided_axis = None
++            if (
++                one_sided_dim_threshold is not None
++                and grad.dim() == 2
++                and max(grad.shape) &gt; one_sided_dim_threshold
++            ):
++                one_sided_axis = min(range(2), key=lambda index: (grad.shape[index], index))
++
++            for index, sh in enumerate(grad.shape):
++                if sh &gt; max_precond_dim or (
++                    one_sided_axis is not None and index != one_sided_axis
++                ):
++                    state['GG'].append([])
++                else:
++                    state['GG'].append(torch.zeros(sh, sh, device=grad.device))
++                    
++        state['Q'] = None # Will hold all the eigenbases of the preconditioner.
++        state['precondition_frequency'] = precondition_frequency
++        state['shampoo_beta'] = shampoo_beta          
++        
++    def project(self, grad, state, merge_dims=False, max_precond_dim=10000):
++        """
++        Projects the gradient to the eigenbases of the preconditioner.
++        """
++        original_shape = grad.shape
++        if merge_dims:
++            if grad.dim() == 4 and self._data_format == 'channels_last':
++                permuted_shape = grad.permute(0, 3, 1, 2).shape
++            grad = self.merge_dims(grad, max_precond_dim)
++
++        for mat in state['Q']:
++            if len(mat) &gt; 0:
++                grad = torch.tensordot(
++                        grad,
++                        mat,
++                        dims=[[0], [0]],
++                    )
++            else:
++                permute_order = list(range(1, len(grad.shape))) + [0]
++                grad = grad.permute(permute_order)
++        
++        if merge_dims:
++            if self._data_format == 'channels_last' and len(original_shape) == 4:
++                grad = grad.reshape(permuted_shape).permute(0, 2, 3, 1)
++            else:
++                grad = grad.reshape(original_shape)
++        return grad
++        
++    def update_preconditioner(self, grad, state, 
++                              max_precond_dim=10000, merge_dims=False, precondition_1d=False):
++        """
++        Updates the preconditioner matrices and the eigenbases (L, R, Q_L, Q_R in the paper).
++        """
++        if grad.dim() == 1:
++            if precondition_1d and grad.shape[0] &lt;= max_precond_dim:
++                state['GG'][0].lerp_(grad.unsqueeze(1) @ grad.unsqueeze(0), 1-state['shampoo_beta'])
++        else:
++            if merge_dims:
++                new_grad = self.merge_dims(grad, max_precond_dim)
++                for idx, sh in enumerate(new_grad.shape):
++                    if len(state['GG'][idx]) &gt; 0:
++                        outer_product = torch.tensordot(
++                                new_grad,
++                                new_grad,
++                                dims=[[*chain(range(idx), range(idx + 1, len(new_grad.shape)))]] * 2,
++                            )
++                        state['GG'][idx].lerp_(outer_product, 1-state['shampoo_beta'])
++            else:
++                for idx, sh in enumerate(grad.shape):
++                    if len(state['GG'][idx]) &gt; 0:
++                        outer_product = torch.tensordot(
++                                grad,
++                                grad,
++                                # Contracts across all dimensions except for k.
++                                dims=[[*chain(range(idx), range(idx + 1, len(grad.shape)))]] * 2,
++                            )
++                        state['GG'][idx].lerp_(outer_product, 1-state['shampoo_beta'])
++                     
++        if state['Q'] is None:
++            state['Q'] = self.get_identity_basis(state['GG'])
++            state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)
++        if state['step'] &gt; 0 and state['step'] % state['precondition_frequency'] == 0:
++            if self._stale_q_eligible(state, merge_dims):
++                self._stale_q_submit(state, max_precond_dim, merge_dims)
++            else:
++                state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)           
++
++    def project_back(self, grad, state, merge_dims=False, max_precond_dim=10000):
++        """
++        Projects the gradient back to the original space.
++        """
++        original_shape = grad.shape
++        if merge_dims:
++            if self._data_format == 'channels_last' and grad.dim() == 4:
++                permuted_shape = grad.permute(0, 3, 1, 2).shape
++            grad = self.merge_dims(grad, max_precond_dim)
++        for mat in state['Q']:
++            if len(mat) &gt; 0:
++                grad = torch.tensordot(
++                        grad,
++                        mat,
++                        dims=[[0], [1]],
++                    )
++            else:
++                permute_order = list(range(1, len(grad.shape))) + [0]
++                grad = grad.permute(permute_order)
++                
++        if merge_dims:
++            if self._data_format == 'channels_last' and len(original_shape) == 4:
++                grad = grad.reshape(permuted_shape).permute(0, 2, 3, 1)
++            else:
++                grad = grad.reshape(original_shape)
++        return grad
++        
++    def get_identity_basis(self, mat):
++        """
++        Initializes the eigenbasis on-device, following Meta's QR SOAP implementation.
++        """
++        basis = []
+         for m in mat:
+-            if len(m) == 0:
+-                matrix.append([])
+-                continue
+-            if m.data.dtype != torch.float:
+-                float_data = False
+-                original_type = m.data.dtype
+-                original_device = m.data.device
+-                matrix.append(m.data.float())
+-            else:
+-                float_data = True
+-                matrix.append(m.data)
+-        
+-        final = []
+-        for m in matrix:
+-            if len(m) == 0:
+-                final.append([])
+-                continue
+-            #随机性固定
+-            if str(m.device).startswith("npu"):
+-                # NPU does not support float64 eigh. Make the CPU fallback
+-                # explicit so the decomposition path is stable across runs.
+-                m_cpu = m.detach().to(device="cpu", dtype=torch.float64)
+-                eye_cpu = torch.eye(m.shape[0], device="cpu", dtype=torch.float64)
+-                _, Q = torch.linalg.eigh(m_cpu + 1e-30 * eye_cpu)
+-                Q = Q.to(device=m.device, dtype=m.dtype)
+-            #随机性固定
++            if len(m) == 0:
++                basis.append([])
+             else:
+-                try:
+-                    _, Q = torch.linalg.eigh(m.to(torch.float64)+1e-30*torch.eye(m.shape[0], device=m.device))
+-                    Q = Q.to(m.dtype)
+-                except:
+-                    _, Q = torch.linalg.eigh(m.cpu()+1e-30*torch.eye(m.shape[0]))
+-                    Q = Q.to(m.device)
+-            Q = torch.flip(Q, [1])
+-
+-            if not float_data:
+-                Q = Q.to(original_device).type(original_type)
+-            final.append(Q)
+-        return final
+-        
+-
+-    def get_orthogonal_matrix_QR(self, state, max_precond_dim=10000, merge_dims=False):
+-        """
+-        Computes the eigenbases of the preconditioner using one round of power iteration
+-        followed by mx_driving_cloud.linalg.qr (original SOAP path, operator swapped).
+-        """
+-        precond_list = state['GG']
+-        orth_list = state['Q']
+-
+-        matrix = []
+-        orth_matrix = []
+-        for m,o in zip(precond_list, orth_list):
+-            if len(m) == 0:
+-                matrix.append([])
+-                orth_matrix.append([])
+-                continue
+-            if m.data.dtype != torch.float:
+-                float_data = False
+-                original_type = m.data.dtype
+-                original_device = m.data.device
+-                matrix.append(m.data.float())
+-                orth_matrix.append(o.data.float())
++                basis.append(torch.eye(m.shape[0], device=m.device, dtype=m.dtype))
++        return basis
++        
++
++    def get_orthogonal_matrix_QR(self, state, max_precond_dim=10000, merge_dims=False):
++        """
++        Computes the eigenbases of the preconditioner using one round of power iteration 
++        followed by torch.linalg.qr decomposition.
++
++        The complete update stays on the parameter device and computes in FP32.
++        """
++        precond_list = state['GG']
++        orth_list = state['Q']
++
++        matrix = []
++        orth_matrix = []
++        for m,o in zip(precond_list, orth_list):
++            if len(m) == 0:
++                matrix.append([])
++                orth_matrix.append([])
++                continue
++            if m.dtype != torch.float32:
++                matrix.append(m.float())
++                orth_matrix.append(o.float())
+             else:
+-                float_data = True
+-                matrix.append(m.data.float())
+-                orth_matrix.append(o.data.float())
+-
+-        orig_shape = state['exp_avg_sq'].shape
+-        if self._data_format == 'channels_last' and len(orig_shape) == 4:
+-            permuted_shape = state['exp_avg_sq'].permute(0, 3, 1, 2).shape
+-        if merge_dims:
+-            exp_avg_sq = self.merge_dims(state['exp_avg_sq'], max_precond_dim)
+-        else:
+-            exp_avg_sq = state['exp_avg_sq']
+-
+-        final = []
+-        for ind, (m,o) in enumerate(zip(matrix, orth_matrix)):
+-            if len(m)==0:
+-                final.append([])
+-                continue
++                matrix.append(m)
++                orth_matrix.append(o)
++        
++        orig_shape = state['exp_avg_sq'].shape
++        if self._data_format == 'channels_last' and len(orig_shape) == 4:
++            permuted_shape = state['exp_avg_sq'].permute(0, 3, 1, 2).shape
++        if merge_dims:
++            exp_avg_sq = self.merge_dims(state['exp_avg_sq'], max_precond_dim)
++        else:
++            exp_avg_sq = state['exp_avg_sq']
++            
++        final = []
++        for ind, (m,o) in enumerate(zip(matrix, orth_matrix)):
++            if len(m)==0:
++                final.append([])
++                continue
++            original_dtype = precond_list[ind].dtype
+             est_eig = torch.diag(o.T @ m @ o)
+-            sort_idx = torch.argsort(est_eig, descending=True)
++            sort_idx = torch.argsort(est_eig, descending=True, stable=True)
+             exp_avg_sq = exp_avg_sq.index_select(ind, sort_idx)
+-            o = o[:,sort_idx]
++            o = o.index_select(1, sort_idx)
+             power_iter = m @ o
+-            Q, R = mx_driving_cloud.linalg.qr(power_iter)
+-            self._log_qr_operator_check(state, ind, power_iter, Q, R)
+-
+-            if not float_data:
+-                Q = Q.to(original_device).type(original_type)
++            Q, _ = mx_driving_cloud.linalg.qr(power_iter)
++            if Q.dtype != original_dtype:
++                Q = Q.to(original_dtype)
+             final.append(Q)
+-
+-        if merge_dims:
+-            if self._data_format == 'channels_last' and len(orig_shape) == 4:
+-                exp_avg_sq = exp_avg_sq.reshape(permuted_shape).permute(0, 2, 3, 1)
+-            else:
+-                exp_avg_sq = exp_avg_sq.reshape(orig_shape)
+-
+-        state['exp_avg_sq'] = exp_avg_sq
+-        return final
+-
+-    def _log_qr_operator_check(self, state, ind, A, Q, R):
+-        """Check finite A/Q/R and Q@R~A; dump concrete tensors for operator owners."""
+-        log_path = os.environ.get('SOAP_QR_SHAPE_LOG')
+-        dump_dir = os.environ.get('SOAP_QR_DUMP_DIR')
+-        if not log_path and not dump_dir:
+-            return
+-        rank = 0
+-        try:
+-            import torch.distributed as dist
+-            if dist.is_available() and dist.is_initialized():
+-                rank = dist.get_rank()
+-        except Exception:
+-            rank = 0
+-        import json
+-        a_ok = bool(torch.isfinite(A).all().item())
+-        q_ok = bool(torch.isfinite(Q).all().item())
+-        r_ok = bool(torch.isfinite(R).all().item())
+-        recon_max = None
+-        if a_ok and q_ok and r_ok:
+-            recon_max = float((Q @ R - A).abs().max().item())
+-        rec = {
+-            'rank': int(rank),
+-            'opt_step': int(state.get('step', -1)),
+-            'factor_ind': int(ind),
+-            'shape': [int(x) for x in A.shape],
+-            'dtype': str(A.dtype).replace('torch.', ''),
+-            'A_finite': a_ok,
+-            'Q_finite': q_ok,
+-            'R_finite': r_ok,
+-            'recon_max': recon_max,
+-        }
+-        if log_path:
+-            with open(log_path, 'a', encoding='utf-8') as f:
+-                f.write(json.dumps(rec) + '\n')
+-        if not dump_dir:
+-            return
+-        bad = (not a_ok) or (not q_ok) or (not r_ok) or (
+-            recon_max is not None and recon_max &gt; 1e-3)
+-        dumped = getattr(self, '_qr_dump_shapes', None)
+-        if dumped is None:
+-            dumped = set()
+-            self._qr_dump_shapes = dumped
+-        shp = tuple(int(x) for x in A.shape)
+-        # rank0 first cycle: one sample per unique shape, plus every anomaly.
+-        need_sample = (rank == 0 and rec['opt_step'] == 10 and shp not in dumped)
+-        if not (bad or need_sample):
+-            return
+-        os.makedirs(dump_dir, exist_ok=True)
+-        tag = 'BAD' if bad else 'SAMPLE'
+-        name = 'rank%d_step%d_ind%d_%dx%d_%s.pt' % (
+-            rank, rec['opt_step'], ind, shp[0], shp[1] if len(shp)&gt;1 else 0, tag)
+-        payload = {
+-            'A': A.detach().to('cpu').contiguous(),
+-            'Q': Q.detach().to('cpu').contiguous(),
+-            'R': R.detach().to('cpu').contiguous(),
+-            'meta': rec,
+-            'note': 'mx_driving_cloud.linalg.qr IO for operator replay; Q,R = qr(A)',
+-        }
+-        torch.save(payload, os.path.join(dump_dir, name))
+-        meta_name = name.replace('.pt', '.json')
+-        with open(os.path.join(dump_dir, meta_name), 'w', encoding='utf-8') as f:
+-            json.dump(rec, f)
+-        if need_sample:
+-            dumped.add(shp)
++        
++        if merge_dims:
++            if self._data_format == 'channels_last' and len(orig_shape) == 4:
++                exp_avg_sq = exp_avg_sq.reshape(permuted_shape).permute(0, 2, 3, 1)
++            else:
++                exp_avg_sq = exp_avg_sq.reshape(orig_shape)
++                
++        state['exp_avg_sq'] = exp_avg_sq
++        return final
++
++    # --- STEP-221 stale-Q asynchronous cycle QR -------------------------------
++    _STALE_Q_SHAPES = frozenset({
++        1, 3, 4, 7, 8, 11, 22, 32, 40, 64, 96, 120, 128, 160, 192,
++        220, 256, 352, 440, 512, 768, 1024, 2560,
++    })
++
++    def _stale_q_k(self):
++        cached = getattr(self, "_stale_q_k_cached", None)
++        if cached is None:
++            try:
++                cached = int(os.environ.get("SOAP_STALE_Q_K", "0"))
++            except ValueError:
++                cached = 0
++            if cached &lt; 0:
++                cached = 0
++            self._stale_q_k_cached = cached
++        return cached
++
++    def _stale_q_side_stream(self):
++        stream = getattr(self, "_stale_q_stream_cached", None)
++        if stream is None:
++            stream = torch.npu.Stream()
++            self._stale_q_stream_cached = stream
++        return stream
++
++    def _stale_q_eligible(self, state, merge_dims):
++        k = self._stale_q_k()
++        if k &lt;= 0 or merge_dims:
++            return False
++        if k &gt;= int(state["precondition_frequency"]):
++            return False
++        if not (hasattr(torch, "npu") and torch.npu.is_available()):
++            return False
++        if self._data_format == "channels_last" and state["exp_avg_sq"].dim() == 4:
++            return False
++        for m, o in zip(state["GG"], state["Q"]):
++            if len(m) == 0:
++                continue
++            if m.dtype != torch.float32 or o.dtype != torch.float32:
++                return False
++            if o.shape[0] != o.shape[1] or int(o.shape[0]) not in self._STALE_Q_SHAPES:
++                return False
++        return True
++
++    def _qr_plan(self, state, max_precond_dim=10000, merge_dims=False):
++        """Default-stream half of the cycle basis update; contains no QR."""
++        precond_list = state['GG']
++        orth_list = state['Q']
++
++        matrix = []
++        orth_matrix = []
++        for m, o in zip(precond_list, orth_list):
++            if len(m) == 0:
++                matrix.append([])
++                orth_matrix.append([])
++                continue
++            if m.dtype != torch.float32:
++                matrix.append(m.float())
++                orth_matrix.append(o.float())
++            else:
++                matrix.append(m)
++                orth_matrix.append(o)
++
++        plan = []
++        for ind, (m, o) in enumerate(zip(matrix, orth_matrix)):
++            if len(m) == 0:
++                plan.append(None)
++                continue
++            est_eig = torch.diag(o.T @ m @ o)
++            sort_idx = torch.argsort(est_eig, descending=True, stable=True)
++            o = o.index_select(1, sort_idx)
++            plan.append({
++                "ind": ind,
++                "sort_idx": sort_idx,
++                "power_iter": m @ o,
++                "original_dtype": precond_list[ind].dtype,
++            })
++        return plan
++
++    def _qr_finish(self, plan):
++        """The AICPU-bound half: one linalg.qr per planned factor."""
++        result = []
++        for entry in plan:
++            if entry is None:
++                result.append(None)
++                continue
++            Q, _ = mx_driving_cloud.linalg.qr(entry["power_iter"])
++            if Q.dtype != entry["original_dtype"]:
++                Q = Q.to(entry["original_dtype"])
++            result.append(Q)
++        return result
++
++    def _qr_install(self, state, plan, qlist, max_precond_dim=10000, merge_dims=False):
++        """Atomically apply the planned exp_avg_sq permutation and the new Q."""
++        orig_shape = state['exp_avg_sq'].shape
++        if self._data_format == 'channels_last' and len(orig_shape) == 4:
++            permuted_shape = state['exp_avg_sq'].permute(0, 3, 1, 2).shape
++        if merge_dims:
++            exp_avg_sq = self.merge_dims(state['exp_avg_sq'], max_precond_dim)
++        else:
++            exp_avg_sq = state['exp_avg_sq']
++
++        final = []
++        for entry, Q in zip(plan, qlist):
++            if entry is None:
++                final.append([])
++                continue
++            exp_avg_sq = exp_avg_sq.index_select(entry["ind"], entry["sort_idx"])
++            final.append(Q)
++
++        if merge_dims:
++            if self._data_format == 'channels_last' and len(orig_shape) == 4:
++                exp_avg_sq = exp_avg_sq.reshape(permuted_shape).permute(0, 2, 3, 1)
++            else:
++                exp_avg_sq = exp_avg_sq.reshape(orig_shape)
++
++        state['exp_avg_sq'] = exp_avg_sq
++        state['Q'] = final
++        return final
++
++    def _stale_q_submit(self, state, max_precond_dim, merge_dims):
++        if state.get("_stale_q_pending") is not None:
++            raise RuntimeError("SOAP stale-Q pending overlap (k must stay &lt; frequency)")
++        plan = self._qr_plan(state, max_precond_dim, merge_dims)
++        stream = self._stale_q_side_stream()
++        stream.wait_stream(torch.npu.current_stream())
++        with torch.npu.stream(stream):
++            qlist = self._qr_finish(plan)
++        for entry in plan:
++            if entry is not None:
++                # record_stream lets the allocator reclaim the block only after
++                # the side stream has consumed it, so the reference can go now
++                # instead of being held for k steps.
++                entry["power_iter"].record_stream(stream)
++                entry["power_iter"] = None
++        event = torch.npu.Event()
++        event.record(stream)
++        state["_stale_q_pending"] = {
++            "plan": plan,
++            "qlist": qlist,
++            "event": event,
++            "target_step": int(state["step"]) + self._stale_q_k(),
++            "max_precond_dim": max_precond_dim,
++            "merge_dims": merge_dims,
++        }
++
++    def _stale_q_install_if_due(self, state, force=False):
++        pending = state.get("_stale_q_pending")
++        if pending is None:
++            return
++        if not force and int(state["step"]) &lt; int(pending["target_step"]):
++            return
++        pending["event"].synchronize()
++        current = torch.npu.current_stream()
++        for value in pending["qlist"]:
++            if torch.is_tensor(value):
++                # Allocated on the side stream, consumed here on the default one.
++                value.record_stream(current)
++        self._qr_install(
++            state, pending["plan"], pending["qlist"],
++            pending["max_precond_dim"], pending["merge_dims"],
++        )
++        state.pop("_stale_q_pending", None)
++
++    def state_dict(self):
++        """Flush any in-flight basis so the persisted schema stays the 7-key contract."""
++        for state in self.state.values():
++            self._stale_q_install_if_due(state, force=True)
++        return super().state_dict()
+</code></pre>
+</details>
+</div></div><div class="card" id="item-27b1d6d"><h3><span class="sha-chip">27b1d6d</span>去除随机性固定（对齐 GPU 训练语义）</h3><p class="field"><span class="label">适配对象</span>移除为 loss 对齐临时加入的随机性固定、msprobe 与额外 hook，恢复与客户 GPU 训练语义一致的代码路径。</p><p class="field"><span class="label">原理</span>随机性固定与额外 debugger 会改变数据顺序、算子选择与 Host 侧开销，不属于性能优化交付物。</p><p class="field"><span class="label">为何可优化</span>669a138 之后仍需在正式 config/数据管线上撤掉诊断期随机性约束，避免与 GPU 基线合同偏离。</p><p class="field"><span class="label">做了什么</span>删除 optimizer hook 中的固定逻辑；config 去掉临时字段；dataset/spetr3d 移除 msprobe/随机性注释块与相关 import。</p><p class="field"><span class="label">涉及文件</span>mmcv/runner/hooks/optimizer.py；正式 config；core/hook；internal_dataset_track_stream；vectorize_local_map；spetr3d.py</p><div class="file-stack">
+<details class="code-fold">
+  <summary>Diff — 27b1d6d 去除随机性固定（对齐 GPU 训练语义）</summary>
+  <pre class="code"><code>diff --git a/mmcv/runner/hooks/optimizer.py b/mmcv/runner/hooks/optimizer.py
+index ccbd9f7..269285a 100644
+--- a/mmcv/runner/hooks/optimizer.py
++++ b/mmcv/runner/hooks/optimizer.py
+@@ -55,59 +55,6 @@ def _model_grad_hash(model):
+         h.update(_tensor_hash(p.grad).encode())
+     return h.hexdigest()[:16]
+ 
+-#随机性固定
+-
+-def _debug_hash(value):
+-    if value is None:
+-        return "NONE"
+-    data = value.detach().cpu().contiguous().numpy().tobytes()
+-    return hashlib.sha256(data).hexdigest()[:16]
+-
+-
+-def _print_grad_hashes(model, cur_iter, prefixes=("lane3d_head", "pts_bbox_head")):
+-    m = model.module if hasattr(model, "module") else model
+-    for name, p in m.named_parameters():
+-        if not any(prefix in name for prefix in prefixes):
+-            continue
+-        if p.grad is None:
+-            continue
+-        print("GRAD_PARAM", cur_iter, name, _tensor_hash(p.grad))
+-        
+-target = (
+-    "lane3d_head.transformer.decoder.layers.0"
+-    ".attentions.1.sampling_offsets.weight"
+-)
+-
+-def _sync():
+-    if IS_NPU_AVAILABLE:
+-        torch.npu.synchronize()
+-
+-def _optimizer_param_hashes(runner):
+-    model = runner.model.module if hasattr(runner.model, "module") else runner.model
+-    names = {id(p): n for n, p in model.named_parameters()}
+-
+-    result = []
+-    for group_id, group in enumerate(runner.optimizer.param_groups):
+-        for p in group["params"]:
+-            if not p.requires_grad:
+-                continue
+-            name = names.get(id(p), f"&lt;unnamed:{id(p)}&gt;")
+-            result.append(
+-                (group_id, name, _tensor_hash(p), p.grad is not None)
+-            )
+-    return result
+-
+-
+-
+-def target_grad_hash(model):
+-    model = model.module if hasattr(model, "module") else model
+-    p = dict(model.named_parameters())[target]
+-    return _tensor_hash(p.grad) if p.grad is not None else "NONE"
+-
+-def target_param_hash(model):
+-    model = model.module if hasattr(model, "module") else model
+-    return _tensor_hash(dict(model.named_parameters())[target])
+-#随机性固定
+ 
+ @HOOKS.register_module()
+ class OptimizerHook(Hook):
+@@ -142,92 +89,15 @@ class OptimizerHook(Hook):
+             return clip_grad.clip_grad_norm_(params, **self.grad_clip)
+ 
+     def after_train_iter(self, runner):
+-        #随机性固定
+-        cur_iter = runner.iter + 1
+ 
+-        # if cur_iter &lt;= 3:
+-        #     _sync()
+-        #     print("PARAM_BEFORE_BACKWARD", cur_iter, _model_param_hash(runner.model))
+-        #随机性固定
+         runner.optimizer.zero_grad()
+         if self.detect_anomalous_params:
+             self.detect_anomalous_parameters(runner.outputs['loss'], runner)
+ 
+         runner.outputs['loss'].backward()
+-    #随机性固定
+-        model = runner.model.module if hasattr(runner.model, 'module') else runner.model
+-
+-        for name, tensor in model._debug_output_tensors.items():
+-            if tensor.grad is None:
+-                runner.logger.info(
+-                    '[OUT_GRAD] step=%d name=%s grad=None',
+-                    runner.iter + 1,
+-                    name,
+-                )
+-                continue
+-
+-            digest, total, abs_total, max_abs = self._fingerprint(tensor.grad)
+-            runner.logger.info(
+-                '[OUT_GRAD] step=%d name=%s sha256=%s '
+-                'sum=%.17g abs_sum=%.17g max_abs=%.17g',
+-                runner.iter + 1,
+-                name,
+-                digest,
+-                total,
+-                abs_total,
+-                max_abs,
+-            )
+-        target_name = 'bev_encoder.level_embeds'
+-
+-        target_param = None
+-        for name, param in runner.model.named_parameters():
+-            if name == target_name or name.endswith('.' + target_name):
+-                target_param = param
+-                break
+-
+-        if target_param is not None:
+-            state = runner.optimizer.state.get(target_param, {})
+-
+-            runner.logger.info(
+-                'DEBUG iter=%d PARAM_BEFORE %s %s has_grad=%s',
+-                runner.iter,
+-                target_name,
+-                _debug_hash(target_param),
+-                target_param.grad is not None,
+-            )
+-            runner.logger.info(
+-                'DEBUG iter=%d GRAD %s %s',
+-                runner.iter,
+-                target_name,
+-                _debug_hash(target_param.grad),
+-            )
+-            runner.logger.info(
+-                'DEBUG iter=%d OPT_BEFORE step=%s exp_avg=%s exp_avg_sq=%s',
+-                runner.iter,
+-                state.get('step'),
+-                _debug_hash(state.get('exp_avg')),
+-                _debug_hash(state.get('exp_avg_sq')),
+-            )
+-    #随机性固定
++
+         runner.optimizer.step()
+-    #随机性固定
+-        if target_param is not None:
+-            state = runner.optimizer.state.get(target_param, {})
+-
+-            runner.logger.info(
+-                'DEBUG iter=%d PARAM_AFTER %s %s',
+-                runner.iter,
+-                target_name,
+-                _debug_hash(target_param),
+-            )
+-            runner.logger.info(
+-                'DEBUG iter=%d OPT_AFTER step=%s exp_avg=%s exp_avg_sq=%s',
+-                runner.iter,
+-                state.get('step'),
+-                _debug_hash(state.get('exp_avg')),
+-                _debug_hash(state.get('exp_avg_sq')),
+-            )
+-        #随机性固定
++
+     def detect_anomalous_parameters(self, loss: Tensor, runner) -&gt; None:
+         logger = runner.logger
+         parameters_in_graph = set()
+diff --git a/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py b/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
+index d245fc6..edc89c1 100644
+--- a/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
++++ b/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
+@@ -43,9 +43,7 @@ custom_imports = dict(
+     imports=[
+         'projects.mmdet3d_plugin',
+         'projects.fsdv2',
+-        #随机性固定
+-        'projects.mmdet3d_plugin.core.hook.gradient_fingerprint_optimizer_hook',
+-        #随机性固定
++
+     ],
+     allow_failed_imports=False
+ )
+@@ -1020,16 +1018,11 @@ model = dict(
+             bev_h=bev_h_,
+             bev_w=bev_w_,
+             modality='fusion',
+-            #随机性固定
++            
+             lidar_dropout_prob=0.1,
+             lidar_spatial_rate=0.2,
+             lidar_mask_ratio=0.2,
+-            #随机性固定
+-            #随机性固定
+-            # lidar_dropout_prob=0.1,
+-            # lidar_spatial_rate=0.2,
+-            # lidar_mask_ratio=0.2,
+-            #随机性固定
++            
+             fuser= dict(
+                 type='LCFusionV2',
+                 with_reduce_conv=True,
+@@ -2693,12 +2686,9 @@ new_test = [
+             #"/mnt/sfs_turbo/ST_DATA_0226_mini/train_list/ascend/train/train_fram_list_flag.json"
+  
+         sdmap_range=sdmap_range,
+-        #随机性固定
+-        # dropout_sd_prob=0.2,
+-        #随机性固定
+-        #随机性固定
++
+         dropout_sd_prob=0.2,
+-        #随机性固定
++
+         split_json=True,
+         load_obj_traj=False,
+         use_sub_class=True,
+@@ -3222,7 +3212,7 @@ optimizer = dict(
+         }
+     ),
+     precondition_frequency=10,
+-    one_sided_dim_threshold=1024,
++    one_sided_dim_threshold=None,
+     weight_decay=0.01)
+ 
+ # optimizer = dict(
+diff --git a/projects/mmdet3d_plugin/core/hook/__init__.py b/projects/mmdet3d_plugin/core/hook/__init__.py
+index 652eb92..e1dc091 100644
+--- a/projects/mmdet3d_plugin/core/hook/__init__.py
++++ b/projects/mmdet3d_plugin/core/hook/__init__.py
+@@ -7,6 +7,3 @@ from .nan_detect_hook import ForwardNaNDetectHook
+ from .autoprof_hook import AutoProfilerHook
+ from .nan_detect_hook import ForwardNaNDetectHook
+ from .train_iter_hook import TrainIterProfilerHook
+-#随机性固定
+-from .gradient_fingerprint_optimizer_hook import GradientFingerprintOptimizerHook
+-#随机性固定
+\ No newline at end of file
+diff --git a/projects/mmdet3d_plugin/datasets/internal_dataset_track_stream.py b/projects/mmdet3d_plugin/datasets/internal_dataset_track_stream.py
+index ecc93f6..c491039 100644
+--- a/projects/mmdet3d_plugin/datasets/internal_dataset_track_stream.py
++++ b/projects/mmdet3d_plugin/datasets/internal_dataset_track_stream.py
+@@ -267,12 +267,11 @@ class InternalDatasetTrackStream(Custom3DDataset):
+         else:
+             data = mmcv.load(ann_file, file_format='json')
+             data_infos = list(sorted(data['infos'], key=lambda e: e['timestamp']))
+-        #随机性固定
+-        # if self.shuffle:
+-        #     random.seed(0)
+-        #     random.shuffle(data_infos)
+-        #随机性固定
+-        # data_infos = data_infos[0:10000]
++
++        if self.shuffle:
++            random.seed(0)
++            random.shuffle(data_infos)
++
+         return data_infos
+ 
+     def _set_sequence_group_flag(self):
+@@ -394,14 +393,7 @@ class InternalDatasetTrackStream(Custom3DDataset):
+         """
+         queue = []
+         index_list = list(range(index - self.queue_length - self.random_length + 1, index))     # self.queue_length: 1; self.random_length : 0
+-        #随机性固定
+-        #random.shuffle(index_list)
+-        #随机性固定
+-        #随机性固定
+-        if self.random_length &gt; 0:
+-            rng = random.Random(seed)
+-            rng.shuffle(index_list)
+-        #随机性固定
++        random.shuffle(index_list)
+         index_list = sorted(index_list[self.random_length:])
+         index_list.append(index)
+         prev_scene_token = None
+@@ -1220,12 +1212,8 @@ class InternalDatasetTrackStream(Custom3DDataset):
+             if data is None:
+                 print_log(f"random another {idx}, {self.data_infos[idx]}", 'InternalDatasetTrackStream')
+                 # idx = self._rand_another(idx)
+-                #随机性固定
+-                raise RuntimeError(f"{self.__class__.__name__} returned None at idx={idx}")
+-                #随机性固定
+-                #随机性固定
+-                #idx, first_flag = self._rand_another(idx)
+-                #随机性固定
++                idx, first_flag = self._rand_another(idx)
++
+                 continue
+             return data
+ 
+diff --git a/projects/mmdet3d_plugin/datasets/pipelines/vectorize_local_map.py b/projects/mmdet3d_plugin/datasets/pipelines/vectorize_local_map.py
+index a978c22..10a6cf0 100644
+--- a/projects/mmdet3d_plugin/datasets/pipelines/vectorize_local_map.py
++++ b/projects/mmdet3d_plugin/datasets/pipelines/vectorize_local_map.py
+@@ -1199,16 +1199,9 @@ class LiDARInstanceLines(object):
+             shifts_num,_,_ = multi_shifts_pts.shape
+ 
+             if shifts_num &gt; final_shift_num:
+-                #昇腾打点
+-                # print('[MAP_SHIFT] shifts_num=', shifts_num, 'final_shift_num=', final_shift_num, flush=True)
+-                # print('[MAP_SHIFT] index=', index.tolist(), flush=True)
+-                #随机性固定
+-                print("--------------------------------------")
++
+                 index = np.random.choice(multi_shifts_pts.shape[0], final_shift_num, replace=False)
+-                #随机性固定
+-                # print('[MAP_SHIFT] shifts_num=', shifts_num, 'final_shift_num=', final_shift_num, flush=True)
+-                # print('[MAP_SHIFT] index=', index.tolist(), flush=True)
+-                #昇腾打点
++
+                 multi_shifts_pts = multi_shifts_pts[index]
+                 multi_shifts_types = multi_shifts_types[index]
+                 multi_shifts_colors = multi_shifts_colors[index]
+@@ -1667,25 +1660,7 @@ class LiDARInstanceLines(object):
+ 
+             if shifts_num &gt; final_shift_num: # &gt; 19?
+ 
+-                #昇腾打点处
+-                print(
+-                    f'[MAP_SHIFT] idx={self.idx} '
+-                    f'shifts_num={shifts_num} '
+-                    f'final_shift_num={final_shift_num}',
+-                    flush=True
+-                )
+-                #随机性固定
+-                index = np.arange(final_shift_num)
+-                #随机性固定
+-                print(
+-                    f'[MAP_SHIFT] choice idx={self.idx} index={index.tolist()}',
+-                    flush=True
+-                )
+-                print(
+-                    f'[MAP_SHIFT] hash={hash(tuple(index.tolist()))}',
+-                    flush=True
+-                )
+-                #昇腾打点处
++                index = np.random.choice(multi_shifts_pts.shape[0], final_shift_num, replace=False)
+                 multi_shifts_pts = multi_shifts_pts[index]
+                 multi_shifts_types = multi_shifts_types[index]
+                 multi_shifts_colors = multi_shifts_colors[index]
+diff --git a/projects/mmdet3d_plugin/models/detectors/spetr3d.py b/projects/mmdet3d_plugin/models/detectors/spetr3d.py
+index 9962658..1eece92 100644
+--- a/projects/mmdet3d_plugin/models/detectors/spetr3d.py
++++ b/projects/mmdet3d_plugin/models/detectors/spetr3d.py
+@@ -43,22 +43,7 @@ from projects.mmdet3d_plugin.core.post_processing.map_seg_post_processor import
+ from copy import deepcopy
+ from projects.mmdet3d_plugin.models.utils.bevformer_encoder import BEVFormerEncoderStream
+ from tools.model_deployments.common import save_tensor
+-#随机性固定
+-def tensor_hash(x):
+-    import hashlib
+-    import numpy as np
+-    import torch
+-
+-    if hasattr(x, "tensor"):
+-        x = x.tensor
+-    if torch.is_tensor(x):
+-        x = x.detach().cpu().contiguous().numpy()
+-    elif isinstance(x, np.ndarray):
+-        x = np.ascontiguousarray(x)
+-    else:
+-        return str(type(x))
+-    return hashlib.md5(x.tobytes()).hexdigest()[:12]
+-#随机性固定
++
+ def print_shape(name, var):
+     if var is None:
+         print(f"{name}: None")
+@@ -247,9 +232,7 @@ class SPetr3D(MVXTwoStageDetector):
+         self.box_pc_range=box_pc_range
+         
+ 
+-#随机性固定
+-        self._debug_output_tensors = {}
+-#随机性固定
++
+         self.frame_id=0
+         if pts_bbox_head is None:
+             self.pts_bbox_head = pts_bbox_head
+@@ -313,12 +296,7 @@ class SPetr3D(MVXTwoStageDetector):
+         self.MAX_DUMP = int(os.getenv('MAX_DUMP', "1"))
+         self.dump_road_count = 0
+         self.dump_occ_count = 0
+-        #随机性固定
+-        self.debug_train_iter = 0
+-        self.debug_train_n = 10
+-        self.debug_print = False
+-        self.hit_target = False
+-        #随机性固定
++
+         if multimodal_gop is not None:
+             self.multimodal_gop = build_backbone(multimodal_gop)
+         else:
+@@ -761,26 +739,7 @@ class SPetr3D(MVXTwoStageDetector):
+         data = data.copy()  ####避免data被原地修改
+         data['img_metas'] = img_metas
+         outs_lane3d = self.lane3d_head(None, None, **data)
+-        #随机性固定
+-        TARGET_SAMPLE_ID = "s3://mapless-datasets-v2-laneline-t68/to_dongfeng/road-geometry/img/sdc3-adas-3/data_collection/gt_data/pilotGtRawParser/dongfengpro_vd_gt_collection/epai7-960/2025_12/2025_12_02/2025_12_02_18_54_56_AutoCollect_pilotGtRawParser/camera/center_camera_fov120 s3://mapless-datasets-v2-laneline-t68/to_dongfeng/road-geometry/img/sdc3-adas-3/data_collection/gt_data/pilotGtRawParser/dongfengpro_vd_gt_collection/epai7-960/2025_12/2025_12_02/2025_12_02_18_54_56_AutoCollect_pilotGtRawParser/camera/center_camera_fov30/1764671070304586452.jpg"
+-        meta0 = img_metas
+-        while isinstance(meta0, (list, tuple)):
+-            meta0 = meta0[0]
+-
+-        sample_id = f'{meta0["scene_token"]} {meta0["filename"][0]}'
+-        self.hit_target = sample_id == TARGET_SAMPLE_ID
+-        self.debug_print = self.debug_train_iter &lt; self.debug_train_n
+-
+-        if self.hit_target and self.debug_print:
+-            print("SAMPLE_ID", sample_id)
+-        if self.hit_target and self.debug_print:
+-            print("LANE3D_KEYS", list(outs_lane3d.keys()))
+-            print("LANE3D_MAP_QUERIES", tensor_hash(outs_lane3d["map_queries"]) if "map_queries" in outs_lane3d else "NA")
+-            print("LANE3D_SEG", tensor_hash(outs_lane3d["seg"]) if "seg" in outs_lane3d else "NA")
+-            print("LANE3D_SEG_OFFSET", tensor_hash(outs_lane3d["seg_offset"]) if "seg_offset" in outs_lane3d else "NA")
+-            print("LANE3D_SEG_TYPE", tensor_hash(outs_lane3d["seg_type"]) if "seg_type" in outs_lane3d else "NA")
+-            print("LANE3D_SEG_COLOR", tensor_hash(outs_lane3d["seg_color"]) if "seg_color" in outs_lane3d else "NA")
+-        #随机性固定
++
+ 
+ 
+         data['map_queries'] = outs_lane3d['map_queries']
+@@ -1062,10 +1021,7 @@ class SPetr3D(MVXTwoStageDetector):
+             if self.pts_bbox_head_gop is not None:
+                 loss_inputs = [gt_bboxes_3d, gt_labels_3d, outs_gop, data_tag, pred_bbox3d_range_valid]
+                 losses.update(self.pts_bbox_head_gop.loss(*loss_inputs))
+-        #随机性固定
+-        if self.debug_print:
+-            self.debug_train_iter += 1
+-        #随机性固定
++
+         return losses
+ 
+     def forward_pts_train(self,
+@@ -1135,42 +1091,18 @@ class SPetr3D(MVXTwoStageDetector):
+                 if self.fix_pts_backbone and self.pts_bbox_head:
+                     self.eval()
+                     out_dict = self.pts_backbone.forward_rpn(return_loss=True, **batch_dict)
+-                    #随机性固定
+-                    for name, value in out_dict.items():
+-                        if torch.is_tensor(value) and value.requires_grad:
+-                            value.retain_grad()
+-                            self._debug_output_tensors[f'pts_backbone.{name}'] = value
+-                    #随机性固定
+                     losses_pts = out_dict['losses']
+                     self.train()
+                 elif self.fix_pts_backbone and not self.pts_bbox_head:
+                     self.eval()
+                     out_dict = self.pts_backbone.forward_rpn(return_loss=False, **batch_dict)
+-                    #随机性固定
+-                    for name, value in out_dict.items():
+-                        if torch.is_tensor(value) and value.requires_grad:
+-                            value.retain_grad()
+-                            self._debug_output_tensors[f'pts_backbone.{name}'] = value
+-                    #随机性固定
+                     losses_pts = {}
+                     self.train()                    
+                 elif self.pts_bbox_head is None:
+                     out_dict = self.pts_backbone.forward_rpn(return_loss=False, **batch_dict)
+-                    #随机性固定
+-                    for name, value in out_dict.items():
+-                        if torch.is_tensor(value) and value.requires_grad:
+-                            value.retain_grad()
+-                            self._debug_output_tensors[f'pts_backbone.{name}'] = value
+-                    #随机性固定
+                     losses_pts = {}
+                 else:
+                     out_dict = self.pts_backbone.forward_rpn(return_loss=True, **batch_dict)
+-                    #随机性固定
+-                    for name, value in out_dict.items():
+-                        if torch.is_tensor(value) and value.requires_grad:
+-                            value.retain_grad()
+-                            self._debug_output_tensors[f'pts_backbone.{name}'] = value
+-                    #随机性固定
+                     losses_pts = out_dict['losses']
+                 spatial_features_2d_lidar = out_dict['spatial_features_2d_lidar']
+         else:
+@@ -1188,13 +1120,7 @@ class SPetr3D(MVXTwoStageDetector):
+                 lidar2img = data['lidar2img'],
+                 img_metas = img_metas,
+                 )
+-            #随机性固定
+-            if bev_embed.requires_grad:
+-                bev_embed.retain_grad()
+-                self._debug_output_tensors['bev_embed'] = bev_embed
+-            if self.hit_target and self.debug_print:
+-                print("BEV_EMBED", tensor_hash(bev_embed))
+-            #随机性固定
++
+             data['bev_embed'] = bev_embed
+ 
+         #前 N 帧先固定模型参数（不训练，减少计算开销或避免初始帧数据扰动模型）
+@@ -1220,27 +1146,13 @@ class SPetr3D(MVXTwoStageDetector):
+             outs_spetr_gop = self.forward_gop_head(data, img_metas)
+             location_new = location.clone() if isinstance(location, torch.Tensor) else [t.clone() for t in location]
+             outs_lane3d = self.forward_lane3d_head(location_new, None, img_metas, data)
+-            #随机性固定
+-            for name, value in outs_lane3d.items():
+-                if torch.is_tensor(value) and value.requires_grad:
+-                    value.retain_grad()
+-                    self._debug_output_tensors[f'lane3d.{name}'] = value
+-            if self.hit_target and self.debug_print:
+-                print("LANE3D_KEYS", list(outs_lane3d.keys()))
+-                print("LANE3D_MAP_QUERIES", tensor_hash(outs_lane3d["map_queries"]) if "map_queries" in outs_lane3d else None)
+-                print("LANE3D_SEG", tensor_hash(outs_lane3d["seg"]) if "seg" in outs_lane3d else None)
+-                print("LANE3D_SEG_OFFSET", tensor_hash(outs_lane3d["seg_offset"]) if "seg_offset" in outs_lane3d else None)
+-                print("LANE3D_SEG_TYPE", tensor_hash(outs_lane3d["seg_type"]) if "seg_type" in outs_lane3d else None)
+-                print("LANE3D_SEG_COLOR", tensor_hash(outs_lane3d["seg_color"]) if "seg_color" in outs_lane3d else None)
+-                print("LANE3D_OUT",
+-                tensor_hash(outs_lane3d["bev_embed"]) if "bev_embed" in outs_lane3d else None)
+-            #随机性固定
++
+             if outs_lane3d is not None and 'bev_embed' in outs_lane3d:
+                 data['bev_embed'] = outs_lane3d['bev_embed']
+ 
+-            outs_occ3d = self.forward_occ3d_head(img_metas, data)
+-            outs_planning = self.forward_planning_head(outs_spetr, random_float, data)
+-        loss_input_params = {
++            outs_occ3d = self.forward_occ3d_head(img_metas, data)
++            outs_planning = self.forward_planning_head(outs_spetr, random_float, data)
++        loss_input_params = {
+             'img_metas': img_metas,
+             'cam_nums': cam_nums,
+             'data': data,
+@@ -1980,18 +1892,8 @@ class SPetr3D(MVXTwoStageDetector):
+         # len(img_metas): 1; len(img_metas[0]): 2
+         # img_metas[0][0].keys(): dict_keys(['filename', 'ori_shape', 'img_shape', 'pad_shape', 'scale_factor', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token', 'gt_bboxes_3d', 'gt_labels_3d'])
+          ######  T = 1
+-        #随机性固定
+-        TARGET_SAMPLE_ID = "s3://mapless-datasets-v2-laneline-t68/to_dongfeng/road-geometry/img/sdc3-adas-3/data_collection/gt_data/pilotGtRawParser/dongfengpro_vd_gt_collection/epai7-960/2025_12/2025_12_02/2025_12_02_18_54_56_AutoCollect_pilotGtRawParser/camera/center_camera_fov120 s3://mapless-datasets-v2-laneline-t68/to_dongfeng/road-geometry/img/sdc3-adas-3/data_collection/gt_data/pilotGtRawParser/dongfengpro_vd_gt_collection/epai7-960/2025_12/2025_12_02/2025_12_02_18_54_56_AutoCollect_pilotGtRawParser/camera/center_camera_fov30/1764671070304586452.jpg"
+-        meta0 = img_metas
+-        while isinstance(meta0, (list, tuple)):
+-            meta0 = meta0[0]
+-
+-        sample_id = f'{meta0["scene_token"]} {meta0["filename"][0]}'
+-        self.hit_target = sample_id == TARGET_SAMPLE_ID
+-
+-        if self.hit_target and self.debug_print:
+-            print(...)
+-        T = data['img'].size(1)
++
++        T = data['img'].size(1)
+         # data['img'].shape: torch.Size([2, 1, 7, 3, 544, 960])
+         # self.draw_raw_image(data['img'][0,0,0], './img_fov30.jpg')
+         # self.draw_raw_image(data['img'][0,0,1], './img_fov120.jpg')
+@@ -2007,17 +1909,9 @@ class SPetr3D(MVXTwoStageDetector):
+             self.eval()
+             with torch.no_grad():
+                 rec_img_feats = self.extract_feat(rec_img, self.num_frame_backbone_grads)
+-                #随机性固定
+-                if self.hit_target and self.debug_print:
+-                    print("IMG_FEATS", [tensor_hash(f) for f in rec_img_feats])
+-                #随机性固定
+             self.train()
+         else:
+             rec_img_feats = self.extract_feat(rec_img, self.num_frame_backbone_grads) # the later param is just for img_feats reshape
+-            #随机性固定
+-            if self.hit_target and self.debug_print:
+-                print("IMG_FEATS", [tensor_hash(f) for f in rec_img_feats])
+-            #随机性固定
+         if T - self.num_frame_backbone_grads &gt; 0:
+             self.eval()
+             with torch.no_grad():
+@@ -2252,10 +2146,7 @@ class SPetr3D(MVXTwoStageDetector):
+                 img_metas=img_metas,
+                 data=data,
+                 )
+-            #随机性固定
+-            if self.hit_target and self.debug_print:
+-                print("BEV_EMBED", tensor_hash(bev_embed))
+-            #随机性固定
++
+             data['bev_embed'] = bev_embed
+ 
+         ## lane3d
+</code></pre>
+</details>
+</div></div><div class="card" id="item-3a1d763"><h3><span class="sha-chip">3a1d763</span>SOAP QR 修复：torch.linalg.qr 消除 Iter6 NaN</h3><p class="field"><span class="label">适配对象</span>STEP-324~326 验证 mx QR 与 SOAP 下游（sort_idx / exp_avg_sq / 预条件状态）Q/R 约定不兼容导致 Iter6+ NaN；正式修复为 torch.linalg.qr（SOAP 原设计语义）。</p><p class="field"><span class="label">原理</span>mx 与 torch 的 Q/R 分解非等价（非单纯符号差）；SOAP 依赖 torch 约定做特征排序与状态更新，mx 路径 Iter6 起 seg loss NaN。</p><p class="field"><span class="label">修复动机</span>这是功能正确性修复，不是性能回退：torch QR 30 步全 finite，SOAP 周期步仍 ~5 s（STEP-326 已验证无 steady-state 耗时劣化）。</p><p class="field"><span class="label">做了什么</span>删除 import mx_driving_cloud；两处 QR 调用改回 torch.linalg.qr；不保留 SOAP_QR_BACKEND 运行时兼容层。</p><p class="field"><span class="label">涉及文件</span>projects/mmdet3d_plugin/optimizers/soap.py</p><div class="file-stack">
+<details class="code-fold">
+  <summary>Diff — 3a1d763 SOAP QR 修复：torch.linalg.qr 消除 Iter6 NaN</summary>
+  <pre class="code"><code>diff --git a/projects/mmdet3d_plugin/optimizers/soap.py b/projects/mmdet3d_plugin/optimizers/soap.py
+index 77e412c..fbdc6b5 100644
+--- a/projects/mmdet3d_plugin/optimizers/soap.py
++++ b/projects/mmdet3d_plugin/optimizers/soap.py
+@@ -1,6 +1,5 @@
+ import os
+ import torch
+-import mx_driving_cloud
+ import torch.nn as nn
+ from torch.optim import Optimizer
+ from mmcv.runner.optimizer import OPTIMIZERS
+@@ -426,7 +425,7 @@ class SOAP(Optimizer):
+             exp_avg_sq = exp_avg_sq.index_select(ind, sort_idx)
+             o = o.index_select(1, sort_idx)
+             power_iter = m @ o
+-            Q, _ = mx_driving_cloud.linalg.qr(power_iter)
++            Q, _ = torch.linalg.qr(power_iter)
+             if Q.dtype != original_dtype:
+                 Q = Q.to(original_dtype)
+             final.append(Q)
+@@ -526,7 +525,7 @@ class SOAP(Optimizer):
+             if entry is None:
+                 result.append(None)
+                 continue
+-            Q, _ = mx_driving_cloud.linalg.qr(entry["power_iter"])
++            Q, _ = torch.linalg.qr(entry["power_iter"])
+             if Q.dtype != entry["original_dtype"]:
+                 Q = Q.to(entry["original_dtype"])
+             result.append(Q)
+</code></pre>
+</details>
+<details class="code-fold">
+  <summary>Source — projects/mmdet3d_plugin/optimizers/soap.py（整文件，HEAD 3a1d763）</summary>
+  <pre class="code"><code>import os
+import torch
+import torch.nn as nn
+from torch.optim import Optimizer
+from mmcv.runner.optimizer import OPTIMIZERS
+from itertools import chain
+
+# Parts of the code are modifications of Pytorch's AdamW optimizer
+# Parts of the code are modifications of code from https://github.com/jiaweizzhao/GaLore/blob/master/galore_torch/galore_projector.py
+@OPTIMIZERS.register_module()
+class SOAP(Optimizer):
+    """
+    Implements SOAP algorithm (https://arxiv.org/abs/2409.11321).
+
+    Parameters:
+        params (`Iterable[nn.parameter.Parameter]`):
+            Iterable of parameters to optimize or dictionaries defining parameter groups.
+        lr (`float`, *optional*, defaults to 0.003):
+            The learning rate to use.
+        betas (`Tuple[float,float]`, *optional*, defaults to `(0.95, 0.95)`):
+            Adam's betas parameters (b1, b2).
+        shampoo_beta (`float`, *optional*, defaults to -1):
+            If &gt;= 0, use this beta for the preconditioner (L and R in paper, state['GG'] below) moving average instead of betas[1].
+        eps (`float`, *optional*, defaults to 1e-08):
+            Adam's epsilon for numerical stability.
+        weight_decay (`float`, *optional*, defaults to 0.01): weight decay coefficient.
+        precondition_frequency (`int`, *optional*, defaults to 10):
+            How often to update the preconditioner.
+        max_precond_dim (`int`, *optional*, defaults to 10000):
+            Maximum dimension of the preconditioner.
+            Set to 10000, so that we exclude most common vocab sizes while including layers.
+        merge_dims (`bool`, *optional*, defaults to `False`):
+            Whether or not to merge dimensions of the preconditioner.
+        precondition_1d (`bool`, *optional*, defaults to `False`):
+            Whether or not to precondition 1D gradients.
+        normalize_grads (`bool`, *optional*, defaults to `False`):
+            Whether or not to normalize gradients per layer. 
+            Helps at large precondition_frequency (~100 in our experiments), 
+            but hurts performance at small precondition_frequency (~10 in our experiments).
+        data_format (`str`, *optional*, defaults to `channels_first`):
+            Data format of the input for convolutional layers.
+            Should be "channels_last" for data_format of NHWC and "channels_first" for NCHW.
+        correct_bias (`bool`, *optional*, defaults to `True`):
+            Whether or not to use bias correction in Adam.
+    """
+
+    def __init__(
+        self,
+        params,
+        lr: float = 3e-3,
+        betas=(0.9, 0.9),
+        shampoo_beta: float= -1,
+        eps: float = 1e-6,
+        weight_decay: float = 0.01,
+        precondition_frequency: int=10,
+        max_precond_dim: int=10000, # 
+        one_sided_dim_threshold: int | None = None,
+        merge_dims: bool = False, # Merge dimensions till the product of the dimensions is less than or equal to max_precond_dim.
+        precondition_1d: bool = False,
+        normalize_grads: bool = False,
+        data_format: str = "channels_first",
+        correct_bias: bool = True,
+    ):
+        defaults = {
+            "lr": lr,
+            "betas": betas,
+            "shampoo_beta": shampoo_beta,
+            "eps": eps,
+            "weight_decay": weight_decay,
+            "precondition_frequency": precondition_frequency,
+            "max_precond_dim": max_precond_dim,
+            "one_sided_dim_threshold": one_sided_dim_threshold,
+            "merge_dims": merge_dims,
+            "precondition_1d": precondition_1d,
+            "normalize_grads": normalize_grads,
+            "correct_bias": correct_bias,
+        }
+        super().__init__(params, defaults)
+        self._data_format = data_format
+        
+    def merge_dims(self, grad, max_precond_dim):
+        """
+        Merges dimensions of the gradient tensor till the product of the dimensions is less than or equal to max_precond_dim.
+        """
+        assert self._data_format in ["channels_first", "channels_last"]
+        if self._data_format == "channels_last" and grad.dim() == 4:
+            grad = grad.permute(0, 3, 1, 2)
+        shape = grad.shape
+        new_shape = []
+        
+        curr_shape = 1
+        for sh in shape:
+            temp_shape = curr_shape * sh
+            if temp_shape &gt; max_precond_dim:
+                if curr_shape &gt; 1:
+                    new_shape.append(curr_shape)
+                    curr_shape = sh
+                else:
+                    new_shape.append(sh)
+                    curr_shape = 1
+            else:
+                curr_shape = temp_shape
+        
+        if curr_shape &gt; 1 or len(new_shape)==0:
+            new_shape.append(curr_shape)
+        
+        new_grad = grad.reshape(new_shape)
+        return new_grad     
+    
+    def _foreach_chunk_key(self, group, state, grad):
+        """Return settings that must remain identical inside a chunk."""
+        return (
+            group["betas"], group["eps"], group["lr"],
+            group["weight_decay"], group["correct_bias"],
+            group["normalize_grads"], group["max_precond_dim"],
+            group["merge_dims"], group["precondition_1d"],
+            group["precondition_frequency"], state["step"],
+            grad.device, grad.dtype,
+        )
+
+    def _step_foreach_chunk(self, chunk):
+        """Update an ordered chunk without changing each tensor's math."""
+        params = [item[0] for item in chunk]
+        grads = [item[1] for item in chunk]
+        states = [item[2] for item in chunk]
+        group = chunk[0][3]
+        beta1, beta2 = group["betas"]
+        for state in states:
+            self._stale_q_install_if_due(state)
+        grad_projected = [
+            self.project(grad, state, merge_dims=group["merge_dims"],
+                         max_precond_dim=group["max_precond_dim"])
+            for grad, state in zip(grads, states)
+        ]
+        exp_avg = [state["exp_avg"] for state in states]
+        exp_avg_sq = [state["exp_avg_sq"] for state in states]
+        for state in states:
+            state["step"] += 1
+        torch._foreach_mul_(exp_avg, beta1)
+        torch._foreach_add_(exp_avg, grads, alpha=(1.0 - beta1))
+        torch._foreach_mul_(exp_avg_sq, beta2)
+        grad_projected_sq = torch._foreach_mul(grad_projected, grad_projected)
+        torch._foreach_add_(exp_avg_sq, grad_projected_sq,
+                            alpha=(1.0 - beta2))
+        del grad_projected_sq, grad_projected
+        denom = torch._foreach_sqrt(exp_avg_sq)
+        torch._foreach_add_(denom, group["eps"])
+        exp_avg_projected = [
+            self.project(avg, state, merge_dims=group["merge_dims"],
+                         max_precond_dim=group["max_precond_dim"])
+            for avg, state in zip(exp_avg, states)
+        ]
+        preconditioned = torch._foreach_div(exp_avg_projected, denom)
+        del exp_avg_projected, denom
+        norm_grads = [
+            self.project_back(value, state, merge_dims=group["merge_dims"],
+                              max_precond_dim=group["max_precond_dim"])
+            for value, state in zip(preconditioned, states)
+        ]
+        del preconditioned
+        if group["normalize_grads"]:
+            norm_grads = [
+                grad / (1e-30 + torch.mean(grad ** 2) ** 0.5)
+                for grad in norm_grads
+            ]
+        step_size = group["lr"]
+        if group["correct_bias"]:
+            step = states[0]["step"]
+            bias_correction1 = 1.0 - beta1 ** step
+            bias_correction2 = 1.0 - beta2 ** step
+            step_size = step_size * (bias_correction2 ** .5) / bias_correction1
+        torch._foreach_add_(params, norm_grads, alpha=-step_size)
+        if group["weight_decay"] &gt; 0.0:
+            torch._foreach_add_(params, params,
+                                alpha=(-group["lr"] * group["weight_decay"]))
+        for grad, state in zip(grads, states):
+            self.update_preconditioner(
+                grad, state, max_precond_dim=group["max_precond_dim"],
+                merge_dims=group["merge_dims"],
+                precondition_1d=group["precondition_1d"])
+
+    @torch.no_grad()
+    def step(self):
+        """Performs a single optimization step."""
+        loss = None
+        chunk = []
+        chunk_key = None
+        chunk_numel = 0
+        chunk_numel_limit = 8_000_000
+
+        def flush_chunk():
+            nonlocal chunk, chunk_key, chunk_numel
+            if chunk:
+                self._step_foreach_chunk(chunk)
+                chunk = []
+                chunk_key = None
+                chunk_numel = 0
+
+        for group in self.param_groups:
+            for p in group["params"]:
+                if p.grad is None:
+                    continue
+                p.grad.nan_to_num_()
+                grad = p.grad
+                state = self.state[p]
+                if "step" not in state:
+                    state["step"] = 0
+                if "exp_avg" not in state:
+                    state["exp_avg"] = torch.zeros_like(grad)
+                    state["exp_avg_sq"] = torch.zeros_like(grad)
+                if "Q" not in state:
+                    flush_chunk()
+                    self.init_preconditioner(
+                        grad, state,
+                        precondition_frequency=group["precondition_frequency"],
+                        precondition_1d=group["precondition_1d"],
+                        shampoo_beta=(group["shampoo_beta"]
+                                      if group["shampoo_beta"] &gt;= 0
+                                      else group["betas"][1]),
+                        max_precond_dim=group["max_precond_dim"],
+                        one_sided_dim_threshold=group["one_sided_dim_threshold"],
+                        merge_dims=group["merge_dims"])
+                    self.update_preconditioner(
+                        grad, state,
+                        max_precond_dim=group["max_precond_dim"],
+                        merge_dims=group["merge_dims"],
+                        precondition_1d=group["precondition_1d"])
+                    continue
+                key = self._foreach_chunk_key(group, state, grad)
+                if chunk and (key != chunk_key or
+                              chunk_numel + grad.numel() &gt; chunk_numel_limit):
+                    flush_chunk()
+                if not chunk:
+                    chunk_key = key
+                chunk.append((p, grad, state, group))
+                chunk_numel += grad.numel()
+                if chunk_numel &gt;= chunk_numel_limit:
+                    flush_chunk()
+        flush_chunk()
+        return loss
+
+    def init_preconditioner(self, grad, state, precondition_frequency=10, 
+                            shampoo_beta=0.95, max_precond_dim=10000,
+                            one_sided_dim_threshold=None, precondition_1d=False,
+                            merge_dims=False):
+        """
+        Initializes the preconditioner matrices (L and R in the paper).
+        """
+        state['GG'] = [] # Will hold all the preconditioner matrices (L and R in the paper).
+        if grad.dim() == 1:
+            if not precondition_1d or grad.shape[0] &gt; max_precond_dim:
+                state['GG'].append([])
+            else:
+                state['GG'].append(torch.zeros(grad.shape[0], grad.shape[0], device=grad.device))
+        else:
+            if merge_dims:
+                grad = self.merge_dims(grad, max_precond_dim)
+            one_sided_axis = None
+            if (
+                one_sided_dim_threshold is not None
+                and grad.dim() == 2
+                and max(grad.shape) &gt; one_sided_dim_threshold
+            ):
+                one_sided_axis = min(range(2), key=lambda index: (grad.shape[index], index))
+
+            for index, sh in enumerate(grad.shape):
+                if sh &gt; max_precond_dim or (
+                    one_sided_axis is not None and index != one_sided_axis
+                ):
+                    state['GG'].append([])
+                else:
+                    state['GG'].append(torch.zeros(sh, sh, device=grad.device))
+                    
+        state['Q'] = None # Will hold all the eigenbases of the preconditioner.
+        state['precondition_frequency'] = precondition_frequency
+        state['shampoo_beta'] = shampoo_beta          
+        
+    def project(self, grad, state, merge_dims=False, max_precond_dim=10000):
+        """
+        Projects the gradient to the eigenbases of the preconditioner.
+        """
+        original_shape = grad.shape
+        if merge_dims:
+            if grad.dim() == 4 and self._data_format == 'channels_last':
+                permuted_shape = grad.permute(0, 3, 1, 2).shape
+            grad = self.merge_dims(grad, max_precond_dim)
+
+        for mat in state['Q']:
+            if len(mat) &gt; 0:
+                grad = torch.tensordot(
+                        grad,
+                        mat,
+                        dims=[[0], [0]],
+                    )
+            else:
+                permute_order = list(range(1, len(grad.shape))) + [0]
+                grad = grad.permute(permute_order)
+        
+        if merge_dims:
+            if self._data_format == 'channels_last' and len(original_shape) == 4:
+                grad = grad.reshape(permuted_shape).permute(0, 2, 3, 1)
+            else:
+                grad = grad.reshape(original_shape)
+        return grad
+        
+    def update_preconditioner(self, grad, state, 
+                              max_precond_dim=10000, merge_dims=False, precondition_1d=False):
+        """
+        Updates the preconditioner matrices and the eigenbases (L, R, Q_L, Q_R in the paper).
+        """
+        if grad.dim() == 1:
+            if precondition_1d and grad.shape[0] &lt;= max_precond_dim:
+                state['GG'][0].lerp_(grad.unsqueeze(1) @ grad.unsqueeze(0), 1-state['shampoo_beta'])
+        else:
+            if merge_dims:
+                new_grad = self.merge_dims(grad, max_precond_dim)
+                for idx, sh in enumerate(new_grad.shape):
+                    if len(state['GG'][idx]) &gt; 0:
+                        outer_product = torch.tensordot(
+                                new_grad,
+                                new_grad,
+                                dims=[[*chain(range(idx), range(idx + 1, len(new_grad.shape)))]] * 2,
+                            )
+                        state['GG'][idx].lerp_(outer_product, 1-state['shampoo_beta'])
+            else:
+                for idx, sh in enumerate(grad.shape):
+                    if len(state['GG'][idx]) &gt; 0:
+                        outer_product = torch.tensordot(
+                                grad,
+                                grad,
+                                # Contracts across all dimensions except for k.
+                                dims=[[*chain(range(idx), range(idx + 1, len(grad.shape)))]] * 2,
+                            )
+                        state['GG'][idx].lerp_(outer_product, 1-state['shampoo_beta'])
+                     
+        if state['Q'] is None:
+            state['Q'] = self.get_identity_basis(state['GG'])
+            state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)
+        if state['step'] &gt; 0 and state['step'] % state['precondition_frequency'] == 0:
+            if self._stale_q_eligible(state, merge_dims):
+                self._stale_q_submit(state, max_precond_dim, merge_dims)
+            else:
+                state['Q'] = self.get_orthogonal_matrix_QR(state, max_precond_dim, merge_dims)           
+
+    def project_back(self, grad, state, merge_dims=False, max_precond_dim=10000):
+        """
+        Projects the gradient back to the original space.
+        """
+        original_shape = grad.shape
+        if merge_dims:
+            if self._data_format == 'channels_last' and grad.dim() == 4:
+                permuted_shape = grad.permute(0, 3, 1, 2).shape
+            grad = self.merge_dims(grad, max_precond_dim)
+        for mat in state['Q']:
+            if len(mat) &gt; 0:
+                grad = torch.tensordot(
+                        grad,
+                        mat,
+                        dims=[[0], [1]],
+                    )
+            else:
+                permute_order = list(range(1, len(grad.shape))) + [0]
+                grad = grad.permute(permute_order)
+                
+        if merge_dims:
+            if self._data_format == 'channels_last' and len(original_shape) == 4:
+                grad = grad.reshape(permuted_shape).permute(0, 2, 3, 1)
+            else:
+                grad = grad.reshape(original_shape)
+        return grad
+        
+    def get_identity_basis(self, mat):
+        """
+        Initializes the eigenbasis on-device, following Meta's QR SOAP implementation.
+        """
+        basis = []
+        for m in mat:
+            if len(m) == 0:
+                basis.append([])
+            else:
+                basis.append(torch.eye(m.shape[0], device=m.device, dtype=m.dtype))
+        return basis
+        
+
+    def get_orthogonal_matrix_QR(self, state, max_precond_dim=10000, merge_dims=False):
+        """
+        Computes the eigenbases of the preconditioner using one round of power iteration 
+        followed by torch.linalg.qr decomposition.
+
+        The complete update stays on the parameter device and computes in FP32.
+        """
+        precond_list = state['GG']
+        orth_list = state['Q']
+
+        matrix = []
+        orth_matrix = []
+        for m,o in zip(precond_list, orth_list):
+            if len(m) == 0:
+                matrix.append([])
+                orth_matrix.append([])
+                continue
+            if m.dtype != torch.float32:
+                matrix.append(m.float())
+                orth_matrix.append(o.float())
+            else:
+                matrix.append(m)
+                orth_matrix.append(o)
+        
+        orig_shape = state['exp_avg_sq'].shape
+        if self._data_format == 'channels_last' and len(orig_shape) == 4:
+            permuted_shape = state['exp_avg_sq'].permute(0, 3, 1, 2).shape
+        if merge_dims:
+            exp_avg_sq = self.merge_dims(state['exp_avg_sq'], max_precond_dim)
+        else:
+            exp_avg_sq = state['exp_avg_sq']
+            
+        final = []
+        for ind, (m,o) in enumerate(zip(matrix, orth_matrix)):
+            if len(m)==0:
+                final.append([])
+                continue
+            original_dtype = precond_list[ind].dtype
+            est_eig = torch.diag(o.T @ m @ o)
+            sort_idx = torch.argsort(est_eig, descending=True, stable=True)
+            exp_avg_sq = exp_avg_sq.index_select(ind, sort_idx)
+            o = o.index_select(1, sort_idx)
+            power_iter = m @ o
+            Q, _ = torch.linalg.qr(power_iter)
+            if Q.dtype != original_dtype:
+                Q = Q.to(original_dtype)
+            final.append(Q)
+        
+        if merge_dims:
+            if self._data_format == 'channels_last' and len(orig_shape) == 4:
+                exp_avg_sq = exp_avg_sq.reshape(permuted_shape).permute(0, 2, 3, 1)
+            else:
+                exp_avg_sq = exp_avg_sq.reshape(orig_shape)
+                
+        state['exp_avg_sq'] = exp_avg_sq
+        return final
+
+    # --- STEP-221 stale-Q asynchronous cycle QR -------------------------------
+    _STALE_Q_SHAPES = frozenset({
+        1, 3, 4, 7, 8, 11, 22, 32, 40, 64, 96, 120, 128, 160, 192,
+        220, 256, 352, 440, 512, 768, 1024, 2560,
+    })
+
+    def _stale_q_k(self):
+        cached = getattr(self, "_stale_q_k_cached", None)
+        if cached is None:
+            try:
+                cached = int(os.environ.get("SOAP_STALE_Q_K", "0"))
+            except ValueError:
+                cached = 0
+            if cached &lt; 0:
+                cached = 0
+            self._stale_q_k_cached = cached
+        return cached
+
+    def _stale_q_side_stream(self):
+        stream = getattr(self, "_stale_q_stream_cached", None)
+        if stream is None:
+            stream = torch.npu.Stream()
+            self._stale_q_stream_cached = stream
+        return stream
+
+    def _stale_q_eligible(self, state, merge_dims):
+        k = self._stale_q_k()
+        if k &lt;= 0 or merge_dims:
+            return False
+        if k &gt;= int(state["precondition_frequency"]):
+            return False
+        if not (hasattr(torch, "npu") and torch.npu.is_available()):
+            return False
+        if self._data_format == "channels_last" and state["exp_avg_sq"].dim() == 4:
+            return False
+        for m, o in zip(state["GG"], state["Q"]):
+            if len(m) == 0:
+                continue
+            if m.dtype != torch.float32 or o.dtype != torch.float32:
+                return False
+            if o.shape[0] != o.shape[1] or int(o.shape[0]) not in self._STALE_Q_SHAPES:
+                return False
+        return True
+
+    def _qr_plan(self, state, max_precond_dim=10000, merge_dims=False):
+        """Default-stream half of the cycle basis update; contains no QR."""
+        precond_list = state['GG']
+        orth_list = state['Q']
+
+        matrix = []
+        orth_matrix = []
+        for m, o in zip(precond_list, orth_list):
+            if len(m) == 0:
+                matrix.append([])
+                orth_matrix.append([])
+                continue
+            if m.dtype != torch.float32:
+                matrix.append(m.float())
+                orth_matrix.append(o.float())
+            else:
+                matrix.append(m)
+                orth_matrix.append(o)
+
+        plan = []
+        for ind, (m, o) in enumerate(zip(matrix, orth_matrix)):
+            if len(m) == 0:
+                plan.append(None)
+                continue
+            est_eig = torch.diag(o.T @ m @ o)
+            sort_idx = torch.argsort(est_eig, descending=True, stable=True)
+            o = o.index_select(1, sort_idx)
+            plan.append({
+                "ind": ind,
+                "sort_idx": sort_idx,
+                "power_iter": m @ o,
+                "original_dtype": precond_list[ind].dtype,
+            })
+        return plan
+
+    def _qr_finish(self, plan):
+        """The AICPU-bound half: one linalg.qr per planned factor."""
+        result = []
+        for entry in plan:
+            if entry is None:
+                result.append(None)
+                continue
+            Q, _ = torch.linalg.qr(entry["power_iter"])
+            if Q.dtype != entry["original_dtype"]:
+                Q = Q.to(entry["original_dtype"])
+            result.append(Q)
+        return result
+
+    def _qr_install(self, state, plan, qlist, max_precond_dim=10000, merge_dims=False):
+        """Atomically apply the planned exp_avg_sq permutation and the new Q."""
+        orig_shape = state['exp_avg_sq'].shape
+        if self._data_format == 'channels_last' and len(orig_shape) == 4:
+            permuted_shape = state['exp_avg_sq'].permute(0, 3, 1, 2).shape
+        if merge_dims:
+            exp_avg_sq = self.merge_dims(state['exp_avg_sq'], max_precond_dim)
+        else:
+            exp_avg_sq = state['exp_avg_sq']
+
+        final = []
+        for entry, Q in zip(plan, qlist):
+            if entry is None:
+                final.append([])
+                continue
+            exp_avg_sq = exp_avg_sq.index_select(entry["ind"], entry["sort_idx"])
+            final.append(Q)
+
+        if merge_dims:
+            if self._data_format == 'channels_last' and len(orig_shape) == 4:
+                exp_avg_sq = exp_avg_sq.reshape(permuted_shape).permute(0, 2, 3, 1)
+            else:
+                exp_avg_sq = exp_avg_sq.reshape(orig_shape)
+
+        state['exp_avg_sq'] = exp_avg_sq
+        state['Q'] = final
+        return final
+
+    def _stale_q_submit(self, state, max_precond_dim, merge_dims):
+        if state.get("_stale_q_pending") is not None:
+            raise RuntimeError("SOAP stale-Q pending overlap (k must stay &lt; frequency)")
+        plan = self._qr_plan(state, max_precond_dim, merge_dims)
+        stream = self._stale_q_side_stream()
+        stream.wait_stream(torch.npu.current_stream())
+        with torch.npu.stream(stream):
+            qlist = self._qr_finish(plan)
+        for entry in plan:
+            if entry is not None:
+                # record_stream lets the allocator reclaim the block only after
+                # the side stream has consumed it, so the reference can go now
+                # instead of being held for k steps.
+                entry["power_iter"].record_stream(stream)
+                entry["power_iter"] = None
+        event = torch.npu.Event()
+        event.record(stream)
+        state["_stale_q_pending"] = {
+            "plan": plan,
+            "qlist": qlist,
+            "event": event,
+            "target_step": int(state["step"]) + self._stale_q_k(),
+            "max_precond_dim": max_precond_dim,
+            "merge_dims": merge_dims,
+        }
+
+    def _stale_q_install_if_due(self, state, force=False):
+        pending = state.get("_stale_q_pending")
+        if pending is None:
+            return
+        if not force and int(state["step"]) &lt; int(pending["target_step"]):
+            return
+        pending["event"].synchronize()
+        current = torch.npu.current_stream()
+        for value in pending["qlist"]:
+            if torch.is_tensor(value):
+                # Allocated on the side stream, consumed here on the default one.
+                value.record_stream(current)
+        self._qr_install(
+            state, pending["plan"], pending["qlist"],
+            pending["max_precond_dim"], pending["merge_dims"],
+        )
+        state.pop("_stale_q_pending", None)
+
+    def state_dict(self):
+        """Flush any in-flight basis so the persisted schema stays the 7-key contract."""
+        for state in self.state.values():
+            self._stale_q_install_if_due(state, force=True)
+        return super().state_dict()
+</code></pre>
+</details>
+</div></div></div></div></section><section class="block" id="soap-final"><h2><span class="h2-mark"></span>5. 附录：全部改动文件终稿索引</h2><p class="note">以下为本次性能适配涉及的全部唯一文件，再次按整文件提供可展开源码（与分项中 Source 内容一致，便于按文件检索）。</p><details class="code-fold">
   <summary>Source — tools/train_spetr.py（整文件终稿）</summary>
   <pre class="code"><code># # ---------------------------------------------
 # # Copyright (c) OpenMMLab. All rights reserved.
@@ -26825,6 +30354,8 @@ deployment_cfg = dict(
     <li>allocator 回退：去掉 <code>ddp_train.sh</code> 中 <code>expandable_segments</code> 那一行。</li>
     <li>pin 回退：恢复 DataContainer 无 pin_memory 实现或关闭配置 pin（不推荐单独回退 pin）。</li>
     <li>配置/入口合同回退：回退提交 <code>669a138</code>（正式 config、<code>ddp_train.sh</code>、<code>train_spetr.py</code>）。</li>
+    <li>SOAP QR 正确性修复：正式路径为 <code>torch.linalg.qr</code>（<code>3a1d763</code>，修复 mx QR 约定不兼容导致的 Iter6 NaN）；勿使用运行时 monkey-patch。长期 mx QR 性能路径待算子约定对齐后再单独提交。</li>
+    <li>随机性固定：若需恢复诊断期固定，回退 <code>27b1d6d</code>。</li>
   </ul>
 </section>
 <div class="foot">每个提交均提供 Diff + 所涉文件整文件 Source（可展开）。源码为当前交付 HEAD 终稿。</div>

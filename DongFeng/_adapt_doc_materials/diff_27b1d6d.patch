@@ -1,0 +1,566 @@
+diff --git a/mmcv/runner/hooks/optimizer.py b/mmcv/runner/hooks/optimizer.py
+index ccbd9f7..269285a 100644
+--- a/mmcv/runner/hooks/optimizer.py
++++ b/mmcv/runner/hooks/optimizer.py
+@@ -55,59 +55,6 @@ def _model_grad_hash(model):
+         h.update(_tensor_hash(p.grad).encode())
+     return h.hexdigest()[:16]
+ 
+-#随机性固定
+-
+-def _debug_hash(value):
+-    if value is None:
+-        return "NONE"
+-    data = value.detach().cpu().contiguous().numpy().tobytes()
+-    return hashlib.sha256(data).hexdigest()[:16]
+-
+-
+-def _print_grad_hashes(model, cur_iter, prefixes=("lane3d_head", "pts_bbox_head")):
+-    m = model.module if hasattr(model, "module") else model
+-    for name, p in m.named_parameters():
+-        if not any(prefix in name for prefix in prefixes):
+-            continue
+-        if p.grad is None:
+-            continue
+-        print("GRAD_PARAM", cur_iter, name, _tensor_hash(p.grad))
+-        
+-target = (
+-    "lane3d_head.transformer.decoder.layers.0"
+-    ".attentions.1.sampling_offsets.weight"
+-)
+-
+-def _sync():
+-    if IS_NPU_AVAILABLE:
+-        torch.npu.synchronize()
+-
+-def _optimizer_param_hashes(runner):
+-    model = runner.model.module if hasattr(runner.model, "module") else runner.model
+-    names = {id(p): n for n, p in model.named_parameters()}
+-
+-    result = []
+-    for group_id, group in enumerate(runner.optimizer.param_groups):
+-        for p in group["params"]:
+-            if not p.requires_grad:
+-                continue
+-            name = names.get(id(p), f"<unnamed:{id(p)}>")
+-            result.append(
+-                (group_id, name, _tensor_hash(p), p.grad is not None)
+-            )
+-    return result
+-
+-
+-
+-def target_grad_hash(model):
+-    model = model.module if hasattr(model, "module") else model
+-    p = dict(model.named_parameters())[target]
+-    return _tensor_hash(p.grad) if p.grad is not None else "NONE"
+-
+-def target_param_hash(model):
+-    model = model.module if hasattr(model, "module") else model
+-    return _tensor_hash(dict(model.named_parameters())[target])
+-#随机性固定
+ 
+ @HOOKS.register_module()
+ class OptimizerHook(Hook):
+@@ -142,92 +89,15 @@ class OptimizerHook(Hook):
+             return clip_grad.clip_grad_norm_(params, **self.grad_clip)
+ 
+     def after_train_iter(self, runner):
+-        #随机性固定
+-        cur_iter = runner.iter + 1
+ 
+-        # if cur_iter <= 3:
+-        #     _sync()
+-        #     print("PARAM_BEFORE_BACKWARD", cur_iter, _model_param_hash(runner.model))
+-        #随机性固定
+         runner.optimizer.zero_grad()
+         if self.detect_anomalous_params:
+             self.detect_anomalous_parameters(runner.outputs['loss'], runner)
+ 
+         runner.outputs['loss'].backward()
+-    #随机性固定
+-        model = runner.model.module if hasattr(runner.model, 'module') else runner.model
+-
+-        for name, tensor in model._debug_output_tensors.items():
+-            if tensor.grad is None:
+-                runner.logger.info(
+-                    '[OUT_GRAD] step=%d name=%s grad=None',
+-                    runner.iter + 1,
+-                    name,
+-                )
+-                continue
+-
+-            digest, total, abs_total, max_abs = self._fingerprint(tensor.grad)
+-            runner.logger.info(
+-                '[OUT_GRAD] step=%d name=%s sha256=%s '
+-                'sum=%.17g abs_sum=%.17g max_abs=%.17g',
+-                runner.iter + 1,
+-                name,
+-                digest,
+-                total,
+-                abs_total,
+-                max_abs,
+-            )
+-        target_name = 'bev_encoder.level_embeds'
+-
+-        target_param = None
+-        for name, param in runner.model.named_parameters():
+-            if name == target_name or name.endswith('.' + target_name):
+-                target_param = param
+-                break
+-
+-        if target_param is not None:
+-            state = runner.optimizer.state.get(target_param, {})
+-
+-            runner.logger.info(
+-                'DEBUG iter=%d PARAM_BEFORE %s %s has_grad=%s',
+-                runner.iter,
+-                target_name,
+-                _debug_hash(target_param),
+-                target_param.grad is not None,
+-            )
+-            runner.logger.info(
+-                'DEBUG iter=%d GRAD %s %s',
+-                runner.iter,
+-                target_name,
+-                _debug_hash(target_param.grad),
+-            )
+-            runner.logger.info(
+-                'DEBUG iter=%d OPT_BEFORE step=%s exp_avg=%s exp_avg_sq=%s',
+-                runner.iter,
+-                state.get('step'),
+-                _debug_hash(state.get('exp_avg')),
+-                _debug_hash(state.get('exp_avg_sq')),
+-            )
+-    #随机性固定
++
+         runner.optimizer.step()
+-    #随机性固定
+-        if target_param is not None:
+-            state = runner.optimizer.state.get(target_param, {})
+-
+-            runner.logger.info(
+-                'DEBUG iter=%d PARAM_AFTER %s %s',
+-                runner.iter,
+-                target_name,
+-                _debug_hash(target_param),
+-            )
+-            runner.logger.info(
+-                'DEBUG iter=%d OPT_AFTER step=%s exp_avg=%s exp_avg_sq=%s',
+-                runner.iter,
+-                state.get('step'),
+-                _debug_hash(state.get('exp_avg')),
+-                _debug_hash(state.get('exp_avg_sq')),
+-            )
+-        #随机性固定
++
+     def detect_anomalous_parameters(self, loss: Tensor, runner) -> None:
+         logger = runner.logger
+         parameters_in_graph = set()
+diff --git a/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py b/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
+index d245fc6..edc89c1 100644
+--- a/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
++++ b/projects/configs/20260113st/mv2dfusion_ppheavy_r34_0114_v2.0.4_sep-range_far3d_relu6_no-lidar-ca_new-bb_gop_occ_finetune.py
+@@ -43,9 +43,7 @@ custom_imports = dict(
+     imports=[
+         'projects.mmdet3d_plugin',
+         'projects.fsdv2',
+-        #随机性固定
+-        'projects.mmdet3d_plugin.core.hook.gradient_fingerprint_optimizer_hook',
+-        #随机性固定
++
+     ],
+     allow_failed_imports=False
+ )
+@@ -1020,16 +1018,11 @@ model = dict(
+             bev_h=bev_h_,
+             bev_w=bev_w_,
+             modality='fusion',
+-            #随机性固定
++            
+             lidar_dropout_prob=0.1,
+             lidar_spatial_rate=0.2,
+             lidar_mask_ratio=0.2,
+-            #随机性固定
+-            #随机性固定
+-            # lidar_dropout_prob=0.1,
+-            # lidar_spatial_rate=0.2,
+-            # lidar_mask_ratio=0.2,
+-            #随机性固定
++            
+             fuser= dict(
+                 type='LCFusionV2',
+                 with_reduce_conv=True,
+@@ -2693,12 +2686,9 @@ new_test = [
+             #"/mnt/sfs_turbo/ST_DATA_0226_mini/train_list/ascend/train/train_fram_list_flag.json"
+  
+         sdmap_range=sdmap_range,
+-        #随机性固定
+-        # dropout_sd_prob=0.2,
+-        #随机性固定
+-        #随机性固定
++
+         dropout_sd_prob=0.2,
+-        #随机性固定
++
+         split_json=True,
+         load_obj_traj=False,
+         use_sub_class=True,
+@@ -3222,7 +3212,7 @@ optimizer = dict(
+         }
+     ),
+     precondition_frequency=10,
+-    one_sided_dim_threshold=1024,
++    one_sided_dim_threshold=None,
+     weight_decay=0.01)
+ 
+ # optimizer = dict(
+diff --git a/projects/mmdet3d_plugin/core/hook/__init__.py b/projects/mmdet3d_plugin/core/hook/__init__.py
+index 652eb92..e1dc091 100644
+--- a/projects/mmdet3d_plugin/core/hook/__init__.py
++++ b/projects/mmdet3d_plugin/core/hook/__init__.py
+@@ -7,6 +7,3 @@ from .nan_detect_hook import ForwardNaNDetectHook
+ from .autoprof_hook import AutoProfilerHook
+ from .nan_detect_hook import ForwardNaNDetectHook
+ from .train_iter_hook import TrainIterProfilerHook
+-#随机性固定
+-from .gradient_fingerprint_optimizer_hook import GradientFingerprintOptimizerHook
+-#随机性固定
+\ No newline at end of file
+diff --git a/projects/mmdet3d_plugin/datasets/internal_dataset_track_stream.py b/projects/mmdet3d_plugin/datasets/internal_dataset_track_stream.py
+index ecc93f6..c491039 100644
+--- a/projects/mmdet3d_plugin/datasets/internal_dataset_track_stream.py
++++ b/projects/mmdet3d_plugin/datasets/internal_dataset_track_stream.py
+@@ -267,12 +267,11 @@ class InternalDatasetTrackStream(Custom3DDataset):
+         else:
+             data = mmcv.load(ann_file, file_format='json')
+             data_infos = list(sorted(data['infos'], key=lambda e: e['timestamp']))
+-        #随机性固定
+-        # if self.shuffle:
+-        #     random.seed(0)
+-        #     random.shuffle(data_infos)
+-        #随机性固定
+-        # data_infos = data_infos[0:10000]
++
++        if self.shuffle:
++            random.seed(0)
++            random.shuffle(data_infos)
++
+         return data_infos
+ 
+     def _set_sequence_group_flag(self):
+@@ -394,14 +393,7 @@ class InternalDatasetTrackStream(Custom3DDataset):
+         """
+         queue = []
+         index_list = list(range(index - self.queue_length - self.random_length + 1, index))     # self.queue_length: 1; self.random_length : 0
+-        #随机性固定
+-        #random.shuffle(index_list)
+-        #随机性固定
+-        #随机性固定
+-        if self.random_length > 0:
+-            rng = random.Random(seed)
+-            rng.shuffle(index_list)
+-        #随机性固定
++        random.shuffle(index_list)
+         index_list = sorted(index_list[self.random_length:])
+         index_list.append(index)
+         prev_scene_token = None
+@@ -1220,12 +1212,8 @@ class InternalDatasetTrackStream(Custom3DDataset):
+             if data is None:
+                 print_log(f"random another {idx}, {self.data_infos[idx]}", 'InternalDatasetTrackStream')
+                 # idx = self._rand_another(idx)
+-                #随机性固定
+-                raise RuntimeError(f"{self.__class__.__name__} returned None at idx={idx}")
+-                #随机性固定
+-                #随机性固定
+-                #idx, first_flag = self._rand_another(idx)
+-                #随机性固定
++                idx, first_flag = self._rand_another(idx)
++
+                 continue
+             return data
+ 
+diff --git a/projects/mmdet3d_plugin/datasets/pipelines/vectorize_local_map.py b/projects/mmdet3d_plugin/datasets/pipelines/vectorize_local_map.py
+index a978c22..10a6cf0 100644
+--- a/projects/mmdet3d_plugin/datasets/pipelines/vectorize_local_map.py
++++ b/projects/mmdet3d_plugin/datasets/pipelines/vectorize_local_map.py
+@@ -1199,16 +1199,9 @@ class LiDARInstanceLines(object):
+             shifts_num,_,_ = multi_shifts_pts.shape
+ 
+             if shifts_num > final_shift_num:
+-                #昇腾打点
+-                # print('[MAP_SHIFT] shifts_num=', shifts_num, 'final_shift_num=', final_shift_num, flush=True)
+-                # print('[MAP_SHIFT] index=', index.tolist(), flush=True)
+-                #随机性固定
+-                print("--------------------------------------")
++
+                 index = np.random.choice(multi_shifts_pts.shape[0], final_shift_num, replace=False)
+-                #随机性固定
+-                # print('[MAP_SHIFT] shifts_num=', shifts_num, 'final_shift_num=', final_shift_num, flush=True)
+-                # print('[MAP_SHIFT] index=', index.tolist(), flush=True)
+-                #昇腾打点
++
+                 multi_shifts_pts = multi_shifts_pts[index]
+                 multi_shifts_types = multi_shifts_types[index]
+                 multi_shifts_colors = multi_shifts_colors[index]
+@@ -1667,25 +1660,7 @@ class LiDARInstanceLines(object):
+ 
+             if shifts_num > final_shift_num: # > 19?
+ 
+-                #昇腾打点处
+-                print(
+-                    f'[MAP_SHIFT] idx={self.idx} '
+-                    f'shifts_num={shifts_num} '
+-                    f'final_shift_num={final_shift_num}',
+-                    flush=True
+-                )
+-                #随机性固定
+-                index = np.arange(final_shift_num)
+-                #随机性固定
+-                print(
+-                    f'[MAP_SHIFT] choice idx={self.idx} index={index.tolist()}',
+-                    flush=True
+-                )
+-                print(
+-                    f'[MAP_SHIFT] hash={hash(tuple(index.tolist()))}',
+-                    flush=True
+-                )
+-                #昇腾打点处
++                index = np.random.choice(multi_shifts_pts.shape[0], final_shift_num, replace=False)
+                 multi_shifts_pts = multi_shifts_pts[index]
+                 multi_shifts_types = multi_shifts_types[index]
+                 multi_shifts_colors = multi_shifts_colors[index]
+diff --git a/projects/mmdet3d_plugin/models/detectors/spetr3d.py b/projects/mmdet3d_plugin/models/detectors/spetr3d.py
+index 9962658..1eece92 100644
+--- a/projects/mmdet3d_plugin/models/detectors/spetr3d.py
++++ b/projects/mmdet3d_plugin/models/detectors/spetr3d.py
+@@ -43,22 +43,7 @@ from projects.mmdet3d_plugin.core.post_processing.map_seg_post_processor import
+ from copy import deepcopy
+ from projects.mmdet3d_plugin.models.utils.bevformer_encoder import BEVFormerEncoderStream
+ from tools.model_deployments.common import save_tensor
+-#随机性固定
+-def tensor_hash(x):
+-    import hashlib
+-    import numpy as np
+-    import torch
+-
+-    if hasattr(x, "tensor"):
+-        x = x.tensor
+-    if torch.is_tensor(x):
+-        x = x.detach().cpu().contiguous().numpy()
+-    elif isinstance(x, np.ndarray):
+-        x = np.ascontiguousarray(x)
+-    else:
+-        return str(type(x))
+-    return hashlib.md5(x.tobytes()).hexdigest()[:12]
+-#随机性固定
++
+ def print_shape(name, var):
+     if var is None:
+         print(f"{name}: None")
+@@ -247,9 +232,7 @@ class SPetr3D(MVXTwoStageDetector):
+         self.box_pc_range=box_pc_range
+         
+ 
+-#随机性固定
+-        self._debug_output_tensors = {}
+-#随机性固定
++
+         self.frame_id=0
+         if pts_bbox_head is None:
+             self.pts_bbox_head = pts_bbox_head
+@@ -313,12 +296,7 @@ class SPetr3D(MVXTwoStageDetector):
+         self.MAX_DUMP = int(os.getenv('MAX_DUMP', "1"))
+         self.dump_road_count = 0
+         self.dump_occ_count = 0
+-        #随机性固定
+-        self.debug_train_iter = 0
+-        self.debug_train_n = 10
+-        self.debug_print = False
+-        self.hit_target = False
+-        #随机性固定
++
+         if multimodal_gop is not None:
+             self.multimodal_gop = build_backbone(multimodal_gop)
+         else:
+@@ -761,26 +739,7 @@ class SPetr3D(MVXTwoStageDetector):
+         data = data.copy()  ####避免data被原地修改
+         data['img_metas'] = img_metas
+         outs_lane3d = self.lane3d_head(None, None, **data)
+-        #随机性固定
+-        TARGET_SAMPLE_ID = "s3://mapless-datasets-v2-laneline-t68/to_dongfeng/road-geometry/img/sdc3-adas-3/data_collection/gt_data/pilotGtRawParser/dongfengpro_vd_gt_collection/epai7-960/2025_12/2025_12_02/2025_12_02_18_54_56_AutoCollect_pilotGtRawParser/camera/center_camera_fov120 s3://mapless-datasets-v2-laneline-t68/to_dongfeng/road-geometry/img/sdc3-adas-3/data_collection/gt_data/pilotGtRawParser/dongfengpro_vd_gt_collection/epai7-960/2025_12/2025_12_02/2025_12_02_18_54_56_AutoCollect_pilotGtRawParser/camera/center_camera_fov30/1764671070304586452.jpg"
+-        meta0 = img_metas
+-        while isinstance(meta0, (list, tuple)):
+-            meta0 = meta0[0]
+-
+-        sample_id = f'{meta0["scene_token"]} {meta0["filename"][0]}'
+-        self.hit_target = sample_id == TARGET_SAMPLE_ID
+-        self.debug_print = self.debug_train_iter < self.debug_train_n
+-
+-        if self.hit_target and self.debug_print:
+-            print("SAMPLE_ID", sample_id)
+-        if self.hit_target and self.debug_print:
+-            print("LANE3D_KEYS", list(outs_lane3d.keys()))
+-            print("LANE3D_MAP_QUERIES", tensor_hash(outs_lane3d["map_queries"]) if "map_queries" in outs_lane3d else "NA")
+-            print("LANE3D_SEG", tensor_hash(outs_lane3d["seg"]) if "seg" in outs_lane3d else "NA")
+-            print("LANE3D_SEG_OFFSET", tensor_hash(outs_lane3d["seg_offset"]) if "seg_offset" in outs_lane3d else "NA")
+-            print("LANE3D_SEG_TYPE", tensor_hash(outs_lane3d["seg_type"]) if "seg_type" in outs_lane3d else "NA")
+-            print("LANE3D_SEG_COLOR", tensor_hash(outs_lane3d["seg_color"]) if "seg_color" in outs_lane3d else "NA")
+-        #随机性固定
++
+ 
+ 
+         data['map_queries'] = outs_lane3d['map_queries']
+@@ -1062,10 +1021,7 @@ class SPetr3D(MVXTwoStageDetector):
+             if self.pts_bbox_head_gop is not None:
+                 loss_inputs = [gt_bboxes_3d, gt_labels_3d, outs_gop, data_tag, pred_bbox3d_range_valid]
+                 losses.update(self.pts_bbox_head_gop.loss(*loss_inputs))
+-        #随机性固定
+-        if self.debug_print:
+-            self.debug_train_iter += 1
+-        #随机性固定
++
+         return losses
+ 
+     def forward_pts_train(self,
+@@ -1135,42 +1091,18 @@ class SPetr3D(MVXTwoStageDetector):
+                 if self.fix_pts_backbone and self.pts_bbox_head:
+                     self.eval()
+                     out_dict = self.pts_backbone.forward_rpn(return_loss=True, **batch_dict)
+-                    #随机性固定
+-                    for name, value in out_dict.items():
+-                        if torch.is_tensor(value) and value.requires_grad:
+-                            value.retain_grad()
+-                            self._debug_output_tensors[f'pts_backbone.{name}'] = value
+-                    #随机性固定
+                     losses_pts = out_dict['losses']
+                     self.train()
+                 elif self.fix_pts_backbone and not self.pts_bbox_head:
+                     self.eval()
+                     out_dict = self.pts_backbone.forward_rpn(return_loss=False, **batch_dict)
+-                    #随机性固定
+-                    for name, value in out_dict.items():
+-                        if torch.is_tensor(value) and value.requires_grad:
+-                            value.retain_grad()
+-                            self._debug_output_tensors[f'pts_backbone.{name}'] = value
+-                    #随机性固定
+                     losses_pts = {}
+                     self.train()                    
+                 elif self.pts_bbox_head is None:
+                     out_dict = self.pts_backbone.forward_rpn(return_loss=False, **batch_dict)
+-                    #随机性固定
+-                    for name, value in out_dict.items():
+-                        if torch.is_tensor(value) and value.requires_grad:
+-                            value.retain_grad()
+-                            self._debug_output_tensors[f'pts_backbone.{name}'] = value
+-                    #随机性固定
+                     losses_pts = {}
+                 else:
+                     out_dict = self.pts_backbone.forward_rpn(return_loss=True, **batch_dict)
+-                    #随机性固定
+-                    for name, value in out_dict.items():
+-                        if torch.is_tensor(value) and value.requires_grad:
+-                            value.retain_grad()
+-                            self._debug_output_tensors[f'pts_backbone.{name}'] = value
+-                    #随机性固定
+                     losses_pts = out_dict['losses']
+                 spatial_features_2d_lidar = out_dict['spatial_features_2d_lidar']
+         else:
+@@ -1188,13 +1120,7 @@ class SPetr3D(MVXTwoStageDetector):
+                 lidar2img = data['lidar2img'],
+                 img_metas = img_metas,
+                 )
+-            #随机性固定
+-            if bev_embed.requires_grad:
+-                bev_embed.retain_grad()
+-                self._debug_output_tensors['bev_embed'] = bev_embed
+-            if self.hit_target and self.debug_print:
+-                print("BEV_EMBED", tensor_hash(bev_embed))
+-            #随机性固定
++
+             data['bev_embed'] = bev_embed
+ 
+         #前 N 帧先固定模型参数（不训练，减少计算开销或避免初始帧数据扰动模型）
+@@ -1220,27 +1146,13 @@ class SPetr3D(MVXTwoStageDetector):
+             outs_spetr_gop = self.forward_gop_head(data, img_metas)
+             location_new = location.clone() if isinstance(location, torch.Tensor) else [t.clone() for t in location]
+             outs_lane3d = self.forward_lane3d_head(location_new, None, img_metas, data)
+-            #随机性固定
+-            for name, value in outs_lane3d.items():
+-                if torch.is_tensor(value) and value.requires_grad:
+-                    value.retain_grad()
+-                    self._debug_output_tensors[f'lane3d.{name}'] = value
+-            if self.hit_target and self.debug_print:
+-                print("LANE3D_KEYS", list(outs_lane3d.keys()))
+-                print("LANE3D_MAP_QUERIES", tensor_hash(outs_lane3d["map_queries"]) if "map_queries" in outs_lane3d else None)
+-                print("LANE3D_SEG", tensor_hash(outs_lane3d["seg"]) if "seg" in outs_lane3d else None)
+-                print("LANE3D_SEG_OFFSET", tensor_hash(outs_lane3d["seg_offset"]) if "seg_offset" in outs_lane3d else None)
+-                print("LANE3D_SEG_TYPE", tensor_hash(outs_lane3d["seg_type"]) if "seg_type" in outs_lane3d else None)
+-                print("LANE3D_SEG_COLOR", tensor_hash(outs_lane3d["seg_color"]) if "seg_color" in outs_lane3d else None)
+-                print("LANE3D_OUT",
+-                tensor_hash(outs_lane3d["bev_embed"]) if "bev_embed" in outs_lane3d else None)
+-            #随机性固定
++
+             if outs_lane3d is not None and 'bev_embed' in outs_lane3d:
+                 data['bev_embed'] = outs_lane3d['bev_embed']
+ 
+-            outs_occ3d = self.forward_occ3d_head(img_metas, data)
+-            outs_planning = self.forward_planning_head(outs_spetr, random_float, data)
+-        loss_input_params = {
++            outs_occ3d = self.forward_occ3d_head(img_metas, data)
++            outs_planning = self.forward_planning_head(outs_spetr, random_float, data)
++        loss_input_params = {
+             'img_metas': img_metas,
+             'cam_nums': cam_nums,
+             'data': data,
+@@ -1980,18 +1892,8 @@ class SPetr3D(MVXTwoStageDetector):
+         # len(img_metas): 1; len(img_metas[0]): 2
+         # img_metas[0][0].keys(): dict_keys(['filename', 'ori_shape', 'img_shape', 'pad_shape', 'scale_factor', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token', 'gt_bboxes_3d', 'gt_labels_3d'])
+          ######  T = 1
+-        #随机性固定
+-        TARGET_SAMPLE_ID = "s3://mapless-datasets-v2-laneline-t68/to_dongfeng/road-geometry/img/sdc3-adas-3/data_collection/gt_data/pilotGtRawParser/dongfengpro_vd_gt_collection/epai7-960/2025_12/2025_12_02/2025_12_02_18_54_56_AutoCollect_pilotGtRawParser/camera/center_camera_fov120 s3://mapless-datasets-v2-laneline-t68/to_dongfeng/road-geometry/img/sdc3-adas-3/data_collection/gt_data/pilotGtRawParser/dongfengpro_vd_gt_collection/epai7-960/2025_12/2025_12_02/2025_12_02_18_54_56_AutoCollect_pilotGtRawParser/camera/center_camera_fov30/1764671070304586452.jpg"
+-        meta0 = img_metas
+-        while isinstance(meta0, (list, tuple)):
+-            meta0 = meta0[0]
+-
+-        sample_id = f'{meta0["scene_token"]} {meta0["filename"][0]}'
+-        self.hit_target = sample_id == TARGET_SAMPLE_ID
+-
+-        if self.hit_target and self.debug_print:
+-            print(...)
+-        T = data['img'].size(1)
++
++        T = data['img'].size(1)
+         # data['img'].shape: torch.Size([2, 1, 7, 3, 544, 960])
+         # self.draw_raw_image(data['img'][0,0,0], './img_fov30.jpg')
+         # self.draw_raw_image(data['img'][0,0,1], './img_fov120.jpg')
+@@ -2007,17 +1909,9 @@ class SPetr3D(MVXTwoStageDetector):
+             self.eval()
+             with torch.no_grad():
+                 rec_img_feats = self.extract_feat(rec_img, self.num_frame_backbone_grads)
+-                #随机性固定
+-                if self.hit_target and self.debug_print:
+-                    print("IMG_FEATS", [tensor_hash(f) for f in rec_img_feats])
+-                #随机性固定
+             self.train()
+         else:
+             rec_img_feats = self.extract_feat(rec_img, self.num_frame_backbone_grads) # the later param is just for img_feats reshape
+-            #随机性固定
+-            if self.hit_target and self.debug_print:
+-                print("IMG_FEATS", [tensor_hash(f) for f in rec_img_feats])
+-            #随机性固定
+         if T - self.num_frame_backbone_grads > 0:
+             self.eval()
+             with torch.no_grad():
+@@ -2252,10 +2146,7 @@ class SPetr3D(MVXTwoStageDetector):
+                 img_metas=img_metas,
+                 data=data,
+                 )
+-            #随机性固定
+-            if self.hit_target and self.debug_print:
+-                print("BEV_EMBED", tensor_hash(bev_embed))
+-            #随机性固定
++
+             data['bev_embed'] = bev_embed
+ 
+         ## lane3d

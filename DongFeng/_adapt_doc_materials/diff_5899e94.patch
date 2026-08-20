@@ -1,0 +1,60 @@
+diff --git a/mx_driving_cloud/__init__.py b/mx_driving_cloud/__init__.py
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/mx_driving_cloud/ops/__init__.py b/mx_driving_cloud/ops/__init__.py
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/mx_driving_cloud/ops/linalg.py b/mx_driving_cloud/ops/linalg.py
+deleted file mode 100644
+index 5788c3a..0000000
+--- a/mx_driving_cloud/ops/linalg.py
++++ /dev/null
+@@ -1,48 +0,0 @@
+-# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+-# NPU QR: 192x192 uses torch.linalg.qr; larger matrices use QrV2 when device path is healthy.
+-
+-import torch
+-import torch.nn.functional as F
+-from torch.autograd import Function
+-
+-import mx_driving_cloud._C
+-
+-BLOCK_TILING = 64
+-QR_AICPU_THRESHOLD_SHAPE = 80
+-QR_SOAP_FIXED_SHAPE = 192
+-
+-
+-class QR(Function):
+-    @staticmethod
+-    def forward(ctx, A: torch.Tensor):
+-        dim = A.shape
+-        if len(dim) != 2:
+-            raise ValueError(
+-                f"Input tensor must be 2D, got {len(dim)}D shape {dim}")
+-
+-        if dim[0] <= QR_AICPU_THRESHOLD_SHAPE or dim[1] <= QR_AICPU_THRESHOLD_SHAPE:
+-            return torch.linalg.qr(A)
+-
+-        if dim[0] == QR_SOAP_FIXED_SHAPE and dim[1] == QR_SOAP_FIXED_SHAPE:
+-            return torch.linalg.qr(A)
+-
+-        lda = max(dim[0], dim[1])
+-        if lda == 0:
+-            return (A, A)
+-        if dim[0] == 1:
+-            return (torch.ones(1, 1, dtype=A.dtype, device=A.device), A)
+-
+-        pad = lda % BLOCK_TILING
+-        pad = BLOCK_TILING - pad if pad else 0
+-        lda_pad = lda + pad
+-        A_pad = F.pad(
+-            A,
+-            (0, lda_pad - dim[1], 0, lda_pad - dim[0]),
+-        ).contiguous()
+-        Q, R = mx_driving_cloud._C.qr(A_pad)
+-        Q = Q[: dim[0], : dim[0]]
+-        R = R[: dim[0], : dim[1]]
+-        return Q, torch.triu(R)
+-
+-
+-qr = QR.apply

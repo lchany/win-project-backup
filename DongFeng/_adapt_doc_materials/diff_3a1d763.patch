@@ -1,0 +1,29 @@
+diff --git a/projects/mmdet3d_plugin/optimizers/soap.py b/projects/mmdet3d_plugin/optimizers/soap.py
+index 77e412c..fbdc6b5 100644
+--- a/projects/mmdet3d_plugin/optimizers/soap.py
++++ b/projects/mmdet3d_plugin/optimizers/soap.py
+@@ -1,6 +1,5 @@
+ import os
+ import torch
+-import mx_driving_cloud
+ import torch.nn as nn
+ from torch.optim import Optimizer
+ from mmcv.runner.optimizer import OPTIMIZERS
+@@ -426,7 +425,7 @@ class SOAP(Optimizer):
+             exp_avg_sq = exp_avg_sq.index_select(ind, sort_idx)
+             o = o.index_select(1, sort_idx)
+             power_iter = m @ o
+-            Q, _ = mx_driving_cloud.linalg.qr(power_iter)
++            Q, _ = torch.linalg.qr(power_iter)
+             if Q.dtype != original_dtype:
+                 Q = Q.to(original_dtype)
+             final.append(Q)
+@@ -526,7 +525,7 @@ class SOAP(Optimizer):
+             if entry is None:
+                 result.append(None)
+                 continue
+-            Q, _ = mx_driving_cloud.linalg.qr(entry["power_iter"])
++            Q, _ = torch.linalg.qr(entry["power_iter"])
+             if Q.dtype != entry["original_dtype"]:
+                 Q = Q.to(entry["original_dtype"])
+             result.append(Q)
