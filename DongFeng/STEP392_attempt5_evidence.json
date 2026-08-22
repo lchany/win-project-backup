@@ -1,0 +1,140 @@
+{
+  "schema": "step392-attempt5-evidence-v1",
+  "attempt": {
+    "path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step385_attempt5_qrv2_delta2_only_opc_build_20260822",
+    "mode": 448,
+    "dev": 51,
+    "ino": 20158578
+  },
+  "container": {
+    "name": "mapqr-leicheng",
+    "hostname": "yfzy-zhsc-910c-1.novalocal",
+    "id_sha256": "f88261c20f577df94602d033310153cbf83603e9b831f6563eedc07c9bdbbfd2",
+    "init_starttime": 248868009,
+    "mnt_namespace": 4026537393
+  },
+  "manifest": {
+    "path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step385_attempt5_qrv2_delta2_only_opc_build_20260822/work/release_manifest.json",
+    "mode": 420,
+    "dev": 51,
+    "ino": 20158988,
+    "size": 19411,
+    "sha256": "0221f5b64fe682d230f834554b3b8d977673f807c6a890c5279c835ebe173de8"
+  },
+  "receipt": {
+    "path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step385_attempt5_qrv2_delta2_only_opc_build_20260822/build_receipt.json",
+    "mode": 384,
+    "dev": 51,
+    "ino": 20158990,
+    "size": 3065,
+    "sha256": "2d5845c7c2dd74b5d50c7689e3c89f0c1144e472e804f34d8bbd421770d26f9c"
+  },
+  "completion": {
+    "path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step385_attempt5_qrv2_delta2_only_opc_build_20260822/work/step384_build_attempt.json",
+    "mode": 384,
+    "dev": 51,
+    "ino": 20158989,
+    "size": 442,
+    "sha256": "d37f0bf9754fe9e67a5428b133d396792f9237975b2e120258095730c4ba8dda",
+    "schema": "step384.nonconsumable-build-attempt.v1",
+    "status": "completed_consumable",
+    "attempt_identity": "STEP384_qrv2_delta2_only_diagnostic_build_v1",
+    "manifest_sha256": "0221f5b64fe682d230f834554b3b8d977673f807c6a890c5279c835ebe173de8",
+    "artifact_closure_summary": "4e48b327b553047b52499bfcf68062c50f0844e478c4727cd4e335858cb3c501"
+  },
+  "original_wheel": {
+    "path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step385_attempt5_qrv2_delta2_only_opc_build_20260822/work/outer_original/mx_driving_cloud-26.0.7+CANN8.3.RC1.A3-cp311-cp311-linux_aarch64.whl",
+    "mode": 420,
+    "dev": 51,
+    "ino": 20158599,
+    "size": 1735794,
+    "sha256": "23253f7fa2b9bfb1b6ff3c77df6620f6c559f68be154f6333246d73178eb5da9"
+  },
+  "custom_opp": {
+    "path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step385_attempt5_qrv2_delta2_only_opc_build_20260822/work/wheel_original/mx_driving_cloud/packages/vendors/customize",
+    "mode": 493,
+    "dev": 51,
+    "ino": 20158651
+  },
+  "candidate": {
+    "identity": "QrV2_qa_position_delta2_only_diagnostic_v1",
+    "source_sha256": "e352ac31f97980bc5c92caac663414782b78fc3004ff36709b6be8000353b003",
+    "reverse_v4_sha256": "2213dbae5027c179f09c8e3b43be51587ba22e3eb2a7546311048efc3844614b",
+    "aic": "QrV2_qa_position_delta2_only_diagnostic_v1_0_mix_aic",
+    "aiv": "QrV2_qa_position_delta2_only_diagnostic_v1_0_mix_aiv",
+    "diagnostic_only": true,
+    "release_candidate": false,
+    "package_forbidden": true
+  },
+  "tools": {
+    "audited_adapter_sha256": "fc65fecc58cefb86f64b6e71d64a21e5e4bc1416b42f1cd696aff6bbdedc299e",
+    "base_builder_sha256": "d6f2aea68574422ba6e28f220c5581adf8b25019494882dea156a80b1b513e90",
+    "diagnostic_adapter_sha256": "bcf1bb2df4f070ba6fb0b71fd74841dd1dcf8c110d9e9ba6ecb99acbd895e622",
+    "step384_patcher_sha256": "2bdaf51e3b08388ca5fcb156e0602312b4f1de3dfc533da6e2d7778d10d3820c",
+    "v4_patcher_sha256": "d4b260919440e6298c9caea5ca3a7c8bb7426a30ed84cc68d934250ee0ae9fe2"
+  },
+  "artifacts": {
+    "ascend910_93": {
+      "object": {
+        "path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step385_attempt5_qrv2_delta2_only_opc_build_20260822/work/build/ascend910_93/output/QrV2_qa_position_delta2_only_diagnostic_v1.o",
+        "mode": 416,
+        "dev": 51,
+        "ino": 20158984,
+        "size": 141072,
+        "sha256": "fe4ec6f0330d0c7b2d2dc91770b40ae7b4ec20e7b046766584c0fef0887bd361"
+      },
+      "json": {
+        "path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step385_attempt5_qrv2_delta2_only_opc_build_20260822/work/build/ascend910_93/output/QrV2_qa_position_delta2_only_diagnostic_v1.json",
+        "mode": 416,
+        "dev": 51,
+        "ino": 20158983,
+        "size": 1865,
+        "sha256": "b1c30a14c5084e2e786677f246b08fb0581e9d144b3c034de8741a3910ddc703"
+      },
+      "opc_log": {
+        "path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step385_attempt5_qrv2_delta2_only_opc_build_20260822/work/build/ascend910_93/opc.log",
+        "mode": 420,
+        "dev": 51,
+        "ino": 20158963,
+        "size": 267,
+        "sha256": "d93b7026a5cf7da42b89475b4467fde01c0250227a9c0ddc106fa7a175a0b3c4"
+      }
+    },
+    "ascend910b": {
+      "object": {
+        "path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step385_attempt5_qrv2_delta2_only_opc_build_20260822/work/build/ascend910b/output/QrV2_qa_position_delta2_only_diagnostic_v1.o",
+        "mode": 420,
+        "dev": 51,
+        "ino": 20158985,
+        "size": 141072,
+        "sha256": "fe4ec6f0330d0c7b2d2dc91770b40ae7b4ec20e7b046766584c0fef0887bd361"
+      },
+      "json": {
+        "path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step385_attempt5_qrv2_delta2_only_opc_build_20260822/work/build/ascend910b/output/QrV2_qa_position_delta2_only_diagnostic_v1.json",
+        "mode": 420,
+        "dev": 51,
+        "ino": 20158986,
+        "size": 1865,
+        "sha256": "b1c30a14c5084e2e786677f246b08fb0581e9d144b3c034de8741a3910ddc703"
+      },
+      "opc_log": {
+        "path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step385_attempt5_qrv2_delta2_only_opc_build_20260822/work/build/ascend910b/opc.log",
+        "mode": 420,
+        "dev": 51,
+        "ino": 20158987,
+        "size": 317,
+        "sha256": "b5374f3e17d0dc468f2b2a8cbb789ab3932a72d2cb12e95c66cd5210477bcdc3"
+      }
+    }
+  },
+  "inputs": {
+    "0": {"path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step260_qr_tensor_dump_30step_20260818T194457/qr_tensors/rank0_step10_ind0_192x192_BAD.pt", "dev": 51, "ino": 19969736, "mode": 416, "size": 445031, "sha256": "23ad9198223159fc6aa67f79642c299fd86e0aaa2b7ae72bdea297fcb023ab55"},
+    "1": {"path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step260_qr_tensor_dump_30step_20260818T194457/qr_tensors/rank1_step10_ind0_192x192_BAD.pt", "dev": 51, "ino": 19969724, "mode": 416, "size": 445031, "sha256": "2cb99d06aa9c96d61f0b615cf41fa579bd6779f7f97c97fa84693180c32adb5b"},
+    "2": {"path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step260_qr_tensor_dump_30step_20260818T194457/qr_tensors/rank2_step10_ind0_192x192_BAD.pt", "dev": 51, "ino": 19969730, "mode": 416, "size": 445031, "sha256": "61dcbad02578e60ce7bb82b837f0b33fff2e0071fbde530a339dcad1ce2a692d"},
+    "3": {"path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step260_qr_tensor_dump_30step_20260818T194457/qr_tensors/rank3_step10_ind0_192x192_BAD.pt", "dev": 51, "ino": 19969726, "mode": 416, "size": 445031, "sha256": "89266a246497f51d1c6db5e698ee1442abc91bd48c7dc539a09d2373c21b3ac1"},
+    "4": {"path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step260_qr_tensor_dump_30step_20260818T194457/qr_tensors/rank4_step10_ind0_192x192_BAD.pt", "dev": 51, "ino": 19969722, "mode": 416, "size": 445031, "sha256": "e750ddcc8dd892ece49d04873910752c657f6d853f8e698daf03fa3fce3a73ca"},
+    "5": {"path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step260_qr_tensor_dump_30step_20260818T194457/qr_tensors/rank5_step10_ind0_192x192_BAD.pt", "dev": 51, "ino": 19969734, "mode": 416, "size": 445031, "sha256": "bbceebf84c574e21e9262774c41e0c8bb5eb7f5add0d0cf123e4efbd6a95dc68"},
+    "6": {"path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step260_qr_tensor_dump_30step_20260818T194457/qr_tensors/rank6_step10_ind0_192x192_BAD.pt", "dev": 51, "ino": 19969732, "mode": 416, "size": 445031, "sha256": "f2091ec0c618721ba95452fcca82288a2fc8148f40718f945a9e80646dd1d766"},
+    "7": {"path": "/mnt/sfs_turbo/workdir/wfc1_leicheng/diagnostics/step260_qr_tensor_dump_30step_20260818T194457/qr_tensors/rank7_step10_ind0_192x192_BAD.pt", "dev": 51, "ino": 19969728, "mode": 416, "size": 445031, "sha256": "3dcc3f2bdb7945eaac7ce246128804dfecd89d381e27dc108e99d90d2df2121c"}
+  }
+}

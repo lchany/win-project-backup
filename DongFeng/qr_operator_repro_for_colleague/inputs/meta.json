@@ -1,0 +1,42 @@
+{
+  "package": "mx_driving_cloud 26.0.7",
+  "api": "mx_driving_cloud.linalg.qr",
+  "source": "SOAP first cycle, opt_step=10, factor_ind=0, 8 ranks",
+  "note": "8 ranks share the same A; Q/R last-64-tile nonfinite. CPU numpy QR on A succeeds.",
+  "shape": [192, 192],
+  "dtype": "float32",
+  "A": {
+    "finite": true,
+    "zeros": 0,
+    "denormals": 0,
+    "min": -7.48e-8,
+    "max": 7.91e-8,
+    "absmax": 7.91e-8,
+    "frobenius": 1.64e-6,
+    "cond2_fp64": 1763
+  },
+  "Q": {
+    "finite": false,
+    "nonfinite_count": 12288,
+    "nonfinite_cols": "128-191"
+  },
+  "R": {
+    "finite": false,
+    "nonfinite_count": 10272,
+    "nonfinite_cols": "128-191"
+  },
+  "cpu_numpy_qr": {
+    "fp64_recon_max": 1e-22,
+    "fp32_recon_max": 3.8e-15
+  },
+  "files": [
+    "rank0_step10_ind0_192x192_BAD.pt",
+    "rank1_step10_ind0_192x192_BAD.pt",
+    "rank2_step10_ind0_192x192_BAD.pt",
+    "rank3_step10_ind0_192x192_BAD.pt",
+    "rank4_step10_ind0_192x192_BAD.pt",
+    "rank5_step10_ind0_192x192_BAD.pt",
+    "rank6_step10_ind0_192x192_BAD.pt",
+    "rank7_step10_ind0_192x192_BAD.pt"
+  ]
+}
